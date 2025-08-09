@@ -28,14 +28,32 @@ end
 
 -- Context-aware select; returns chosen macro
 function UI.select_macro(cb, ctx)
-  local eligible, others = Store.partition_by_context(ctx)
-  table.sort(eligible, function(a,b) return a.name < b.name end)
-  table.sort(others,    function(a,b) return a.name < b.name end)
+  local all = Store.all(ctx)
+  local cur = ctx or S.current_context(function() return Store.get_session_id() end)
+  local groups = {}
+  for _, m in ipairs(all) do
+    local label
+    if S.matches(m.scope, cur) then
+      label = 'Active macros'
+    else
+      label = S.label(m.scope, cfg and cfg.nerd_icons)
+    end
+    groups[label] = groups[label] or { label = label, macros = {} }
+    table.insert(groups[label].macros, m)
+  end
+
+  local ordered = {}
+  for _, g in pairs(groups) do table.insert(ordered, g) end
+  table.sort(ordered, function(a,b) return a.label < b.label end)
+  local final = {}
+  for _, g in ipairs(ordered) do if g.label == 'Active macros' then table.insert(final, 1, g) else final[#final+1] = g end end
 
   local items, map = {}, {}
-  for _, m in ipairs(eligible) do table.insert(items, UI.picker_label(m)); table.insert(map, m) end
-  if #eligible > 0 and #others > 0 then table.insert(items, '──────── ┈ non-context macros ┈ ────────'); table.insert(map, { __sep = true }) end
-  for _, m in ipairs(others) do table.insert(items, UI.picker_label(m)); table.insert(map, m) end
+  for _, g in ipairs(final) do
+    table.insert(items, U.hr(g.label, 60, '-')); table.insert(map, { __sep = true })
+    table.sort(g.macros, function(a,b) return a.name < b.name end)
+    for _, m in ipairs(g.macros) do table.insert(items, UI.picker_label(m)); table.insert(map, m) end
+  end
 
   vim.ui.select(items, { prompt = 'Select macro' }, function(choice)
     if not choice then return cb(nil) end

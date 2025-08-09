@@ -13,10 +13,11 @@ function B.setup(config) cfg = config end
 
 local function render_header()
   if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_bank_header') end
+  local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Saved Macro Bank',
     'Ops: Update <C-u> | Select <CR> | Play <C-CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
-    '—',
+    U.hr('', width, '─'),
   }
   local virt = {}
   for i, line in ipairs(hdr) do
@@ -38,30 +39,61 @@ local function set_scope_ghost(row, scope)
 end
 
 local function lines_for_bank()
-  local eligible, others = Store.partition_by_context(state.ctx)
+  local ctx = state.ctx
+  local eligible, others = Store.partition_by_context(ctx)
   table.sort(eligible, function(a,b) return a.name < b.name end)
-  table.sort(others,    function(a,b) return a.name < b.name end)
 
-  local rows, ids = {}, {}
-  local function push_group(title, list)
-    if #rows > 0 then rows[#rows+1] = ''; ids[#ids+1] = nil end
-    rows[#rows+1] = title; ids[#ids+1] = '__group__'
-    for _, m in ipairs(list) do rows[#rows+1] = string.format('%s  %s', m.name, U.readable(m.keys)); ids[#ids+1] = m.id end
+  local groups = {}
+  for _, m in ipairs(others) do
+    local label = S.label(m.scope, cfg and cfg.nerd_icons)
+    local key = label
+    groups[key] = groups[key] or { label = label, macros = {} }
+    table.insert(groups[key].macros, m)
   end
-  if #eligible > 0 then push_group('— context macros —', eligible) end
-  if #others > 0 then push_group('— other macros —', others) end
-  return rows, ids
+
+  local rows, ids, headers, show_scope = {}, {}, {}, {}
+  if #eligible > 0 then
+    rows[#rows+1] = '' ; ids[#ids+1] = '__group__'; headers[#rows] = 'Active macros'
+    for _, m in ipairs(eligible) do
+      rows[#rows+1] = string.format('%s  %s', m.name, U.readable(m.keys))
+      ids[#ids+1] = m.id
+      show_scope[#rows] = true
+    end
+  end
+
+  local ordered = {}
+  for _, g in pairs(groups) do table.insert(ordered, g) end
+  table.sort(ordered, function(a,b) return a.label < b.label end)
+
+  for _, g in ipairs(ordered) do
+    rows[#rows+1] = '' ; ids[#ids+1] = '__group__'; headers[#rows] = g.label
+    table.sort(g.macros, function(a,b) return a.name < b.name end)
+    for _, m in ipairs(g.macros) do
+      rows[#rows+1] = string.format('%s  %s', m.name, U.readable(m.keys))
+      ids[#ids+1] = m.id
+    end
+  end
+  return rows, ids, headers, show_scope
 end
 
 local function redraw()
-  local rows, ids = lines_for_bank()
+  local rows, ids, headers, show_scope = lines_for_bank()
   state.rows, state.id_by_row = rows, ids
   vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, rows)
 
   ensure_ns(); vim.api.nvim_buf_clear_namespace(state.buf, state.virt_ns, 0, -1)
   local line = state.header_lines
   local all = Store.all(state.ctx); local by_id = {}; for _, m in ipairs(all) do by_id[m.id] = m end
-  for i, id in ipairs(ids) do if id and id ~= '__group__' then set_scope_ghost(line+i, by_id[id].scope) end end
+  local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
+  for i, id in ipairs(ids) do
+    local row = line + i
+    if id == '__group__' then
+      local label = headers[i]
+      vim.api.nvim_buf_set_extmark(state.buf, state.virt_ns, row-1, 0, { virt_text = { { U.hr(label, width, '-') , 'Comment' } } })
+    elseif id and show_scope[i] then
+      set_scope_ghost(row, by_id[id].scope)
+    end
+  end
 end
 
 local function ensure()
@@ -69,8 +101,10 @@ local function ensure()
   state.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[state.buf].buftype='nofile'; vim.bo[state.buf].bufhidden='wipe'; vim.bo[state.buf].swapfile=false; vim.bo[state.buf].filetype='macrobank'
 
-  local width = math.max(60, math.floor(vim.o.columns*0.7))
-  local height= math.max(20, math.floor(vim.o.lines*0.7))
+  local w = (cfg and cfg.window and cfg.window.width) or 0.7
+  local h = (cfg and cfg.window and cfg.window.height) or 0.7
+  local width = math.max(50, (w < 1) and math.floor(vim.o.columns * w) or w)
+  local height= math.max(18, (h < 1) and math.floor(vim.o.lines * h) or h)
   local row   = math.floor((vim.o.lines-height)/2-1)
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })

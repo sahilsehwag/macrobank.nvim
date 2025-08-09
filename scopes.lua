@@ -57,13 +57,17 @@ end
 
 -- Human label for scope (for UI)
 function S.label(scope, nerd)
-  if not scope or not scope.type then return '[?]' end
+  if not scope or not scope.type then return '?' end
   local t = scope.type
   local i = icon(t, nerd)
   local v = scope.value
-  if t == 'file' or t == 'directory' then if v then v = vim.fn.fnamemodify(v, ':.') end end
-  if v and v ~= '' then return string.format('[%s %s:%s]', i, t, v) end
-  return string.format('[%s %s]', i, t)
+  if t == 'directory' and v then
+    v = vim.fn.pathshorten(vim.fn.fnamemodify(v, ':.'))
+  elseif t == 'file' and v then
+    v = string.format('%s/%s', vim.fn.fnamemodify(v, ':h:t'), vim.fn.fnamemodify(v, ':t'))
+  end
+  if v and v ~= '' then return string.format('%s %s(%s)', i, t, v) end
+  return string.format('%s %s', i, t)
 end
 
 return S
