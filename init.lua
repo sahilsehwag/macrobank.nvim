@@ -14,6 +14,11 @@ local DEFAULTS = {
   default_play_register   = 'q',  -- temporary register used to play from bank
   nerd_icons = true,              -- use nerdfont icons in UI labels
 
+  window = {                     -- editor window dimensions
+    width  = 0.7,                -- fraction of columns or absolute number
+    height = 0.7,                -- fraction of lines   or absolute number
+  },
+
   mappings = {
     open_live   = '<leader>mm',   -- open Live Macro Editor (registers)
     open_bank   = '<leader>mb',   -- open Macro Bank (saved macros)

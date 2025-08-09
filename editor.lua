@@ -27,11 +27,12 @@ end
 
 local function render_header()
   if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_live_header') end
+  local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
     'Ops: Update <C-u> | Play <C-CR> | Repeat . | Delete dd | Load @',
     'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
-    '—',
+    U.hr('', width, '─'),
   }
   local virt = {}
   for i, line in ipairs(hdr) do
@@ -45,8 +46,10 @@ local function ensure()
   state.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[state.buf].buftype='nofile'; vim.bo[state.buf].bufhidden='wipe'; vim.bo[state.buf].swapfile=false; vim.bo[state.buf].filetype='macrobank'
 
-  local width = math.max(50, math.floor(vim.o.columns*0.65))
-  local height= math.max(18, math.floor(vim.o.lines*0.6))
+  local w = (cfg and cfg.window and cfg.window.width) or 0.7
+  local h = (cfg and cfg.window and cfg.window.height) or 0.7
+  local width = math.max(50, (w < 1) and math.floor(vim.o.columns * w) or w)
+  local height= math.max(18, (h < 1) and math.floor(vim.o.lines * h) or h)
   local row   = math.floor((vim.o.lines-height)/2-1)
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
