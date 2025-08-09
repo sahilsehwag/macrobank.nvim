@@ -14,6 +14,11 @@ local DEFAULTS = {
   default_play_register   = 'q',  -- temporary register used to play from bank
   nerd_icons = true,              -- use nerdfont icons in UI labels
 
+  window = {                     -- editor window dimensions
+    width  = 0.7,                -- fraction of columns or absolute number
+    height = 0.7,                -- fraction of lines   or absolute number
+  },
+
   mappings = {
     open_live   = '<leader>mm',   -- open Live Macro Editor (registers)
     open_bank   = '<leader>mb',   -- open Macro Bank (saved macros)
@@ -33,6 +38,22 @@ function M.setup(user)
   -- Commands
   vim.api.nvim_create_user_command('MacroBankLive', function() require('macrobank.editor').open() end, {})
   vim.api.nvim_create_user_command('MacroBank',     function() require('macrobank.saved_editor').open() end, {})
+  vim.api.nvim_create_user_command('MacroBankPlay', function(opts)
+    local Store = require('macrobank.store')
+    local U = require('macrobank.util')
+    local name = opts.args
+    local macro = nil
+    for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
+    if not macro then return U.warn('Macro not found') end
+    local reg = (M.config.default_play_register) or 'q'
+    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, macro.keys, 'n')
+    if opts.range > 0 then
+      vim.cmd(('%d,%dnormal! @%s'):format(opts.line1, opts.line2, reg))
+    else
+      vim.cmd(('normal! @%s'):format(reg))
+    end
+    vim.fn.setreg(reg, prev, 'n')
+  end, { nargs=1, range=true })
 
   -- Sample mappings (optional)
   if M.config.mappings and M.config.mappings.open_live then

@@ -6,7 +6,7 @@ local S = require('macrobank.scopes')
 local E = {}
 local cfg = nil
 
-local state = { buf=nil, win=nil, header_lines=7, regs={}, last_run_reg=nil }
+local state = { buf=nil, win=nil, header_lines=0, regs={}, last_run_reg=nil, header_ns=nil, ctx=nil }
 
 function E.setup(config) cfg = config end
 
@@ -25,18 +25,20 @@ local function lines_for_view()
   return out
 end
 
-local function header_lines()
-  local i = cfg and cfg.nerd_icons
-  local ico = function(k, fallback) if not i then return fallback end return ({ Play='', Save='', Select='󰆾', Delete='', Rec='', Prev='' })[k] or fallback end
-  return {
+local function render_header()
+  if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_live_header') end
+  local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
+  local hdr = {
     'MacroBank — Live Macro Editor',
-    string.format(' %-9s %-16s %-18s %-16s %-14s %-14s', 'Ops:', ico('Play','Play: r/R'), ico('Save','Save: <CR>/S'), ico('Select','Select: L'), ico('Delete','Delete: X'), ico('Rec','Record: K')),
-    '  • Edit right side; <CR> saves @reg, S saves all. X clears @reg.',
-    '  • E exports (normal/visual) with name+scope; L selects from bank (context-aware).',
-    '  • r plays @reg; R repeats last. K toggles record on a chosen register.',
-    '  • P preview (dry-run): open scratch diff and run macro there.',
-    '—',
+    'Ops: Update <C-u> | Play <C-CR> | Repeat . | Delete dd | Load @',
+    'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
+    U.hr('', width, '─'),
   }
+  local virt = {}
+  for i, line in ipairs(hdr) do
+    virt[i] = { { line, (i==1) and 'Title' or 'Comment' } }
+  end
+  vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, 0, 0, { virt_lines = virt, virt_lines_above = true })
 end
 
 local function ensure()
@@ -44,190 +46,108 @@ local function ensure()
   state.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[state.buf].buftype='nofile'; vim.bo[state.buf].bufhidden='wipe'; vim.bo[state.buf].swapfile=false; vim.bo[state.buf].filetype='macrobank'
 
-  local width = math.max(50, math.floor(vim.o.columns*0.65))
-  local height= math.max(18, math.floor(vim.o.lines*0.6))
+  local w = (cfg and cfg.window and cfg.window.width) or 0.7
+  local h = (cfg and cfg.window and cfg.window.height) or 0.7
+  local width = math.max(50, (w < 1) and math.floor(vim.o.columns * w) or w)
+  local height= math.max(18, (h < 1) and math.floor(vim.o.lines * h) or h)
   local row   = math.floor((vim.o.lines-height)/2-1)
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
 
-  local hdr = header_lines()
-  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, hdr)
-  for i=0, state.header_lines-2 do vim.api.nvim_buf_add_highlight(state.buf, -1, (i==0) and 'Title' or 'Comment', i, 0, -1) end
-  vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, lines_for_view())
+  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines_for_view())
+  render_header()
   vim.bo[state.buf].modifiable = true
+
+  if state.last_run_reg then
+    for i, r in ipairs(state.regs) do
+      if r == state.last_run_reg then vim.api.nvim_win_set_cursor(state.win, { i, 0 }); break end
+    end
+  end
 
   local map = function(mode, lhs, rhs) vim.keymap.set(mode, lhs, rhs, { buffer=state.buf, silent=true, nowait=true }) end
 
-  -- Save one
-  map('n', '<CR>', function()
+  -- Update current register
+  map('n', '<C-u>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
-    vim.fn.setreg(p.reg, U.to_termcodes(p.text), 'n'); U.info('Saved @'..p.reg)
+    vim.fn.setreg(p.reg, U.to_termcodes(p.text), 'n')
+    vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  %s', p.reg, U.readable(p.text)) })
+    U.info('Updated @'..p.reg)
   end)
 
-  -- Save all
-  map('n', 'S', function()
-    local lines = vim.api.nvim_buf_get_lines(state.buf, state.header_lines, -1, false)
-    for _, line in ipairs(lines) do local p = U.parse_reg_line(line); if p then vim.fn.setreg(p.reg, U.to_termcodes(p.text), 'n') end end
-    U.info('Saved all (a–z)')
-  end)
-
-  -- Play current
-  map('n', 'r', function()
+  -- Play current register
+  map('n', '<C-CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
     state.last_run_reg = p.reg
     local count = vim.v.count1
     E.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, p.reg)) end)
   end)
 
-  -- Repeat last
-  map('n', 'R', function()
+  -- Repeat last macro
+  map('n', '.', function()
     if not state.last_run_reg then return U.warn('No macro played yet') end
     local count = vim.v.count1
     E.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, state.last_run_reg)) end)
   end)
 
-  -- Clear current register (Delete)
-  map('n', 'X', function()
+  -- Clear current register
+  map('n', 'dd', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
     vim.fn.setreg(p.reg, '', 'n')
     vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  ', p.reg) })
     U.info('Cleared @'..p.reg)
   end)
 
-  -- Single mapping for Export (normal/visual): E
-  local function do_export()
-    local mode = vim.fn.mode()
-    if mode == 'n' then
-      local row = vim.api.nvim_win_get_cursor(state.win)[1]
-      if row <= state.header_lines then return end
-      local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
-      E._export_prompt({ { reg=p.reg, text=p.text } })
-    else
-      local srow = vim.fn.getpos('v')[2]
-      local erow = vim.fn.getpos('.')[2]
-      if srow > erow then srow, erow = erow, srow end
-      srow = math.max(srow, state.header_lines+1)
-      local lines = vim.api.nvim_buf_get_lines(state.buf, srow-1, erow, false)
-      local sel = {}
-      for _, line in ipairs(lines) do local p = U.parse_reg_line(line); if p then table.insert(sel, { reg=p.reg, text=p.text }) end end
-      if #sel > 0 then E._export_prompt(sel) end
-    end
-  end
-  map({ 'n', 'x' }, 'E', do_export)
-
-  -- Selecting (context UI) into current register
-  map('n', 'L', function()
+  -- Load macro from bank into current register
+  map('n', '@', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
     require('macrobank.ui').select_macro(function(m)
       if not m then return end
       vim.fn.setreg(p.reg, m.keys, 'n')
       vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  %s', p.reg, U.readable(m.keys)) })
-      U.info(('Selected "%s" → @%s'):format(m.name, p.reg))
-    end)
+      U.info(('Loaded "%s" → @%s'):format(m.name, p.reg))
+    end, state.ctx)
   end)
 
-  -- Toggle recording on a chosen register
-  map('n', 'K', function()
-    local rec = vim.fn.reg_recording()
-    if rec ~= '' then vim.cmd('normal! q'); U.info('Stopped recording @'..rec); return end
-    vim.ui.input({ prompt = 'Record into register (a–z):', default = cfg.default_play_register or 'q' }, function(r)
-      if not r or #r ~= 1 or not r:match('[a-z]') then return end
-      vim.cmd('normal! q'..r)
-      U.info('Recording... press q to stop')
-    end)
-  end)
-
-  -- Preview (dry-run) in a scratch diff
-  map('n', 'P', function()
+  local function save_current(scope_type)
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
-    local count = vim.v.count1
-    E.close()
-    vim.schedule(function()
-      local src_buf = vim.api.nvim_get_current_buf()
-      local src_name = vim.api.nvim_buf_get_name(src_buf)
-      -- duplicate buffer into scratch
-      local tmp = vim.api.nvim_create_buf(true, true)
-      local lines = vim.api.nvim_buf_get_lines(src_buf, 0, -1, false)
-      vim.api.nvim_buf_set_lines(tmp, 0, -1, false, lines)
-      -- open side-by-side diff
-      vim.cmd('leftabove vnew')
-      local left = vim.api.nvim_get_current_buf()
-      vim.api.nvim_buf_set_lines(left, 0, -1, false, lines)
-      vim.cmd('diffthis')
-      vim.cmd('vnew')
-      local right = vim.api.nvim_get_current_buf()
-      vim.api.nvim_buf_set_lines(right, 0, -1, false, lines)
-      vim.cmd('diffthis')
-      -- run macro on right
-      vim.api.nvim_set_current_buf(right)
-      vim.fn.setreg(p.reg, vim.fn.getreg(p.reg), 'n')
-      vim.cmd(('normal! %d@%s'):format(count, p.reg))
-      vim.cmd('redraw!')
-      U.info('Preview: left = original, right = after macro')
+    local ctx = state.ctx or S.current_context(function() return Store.get_session_id() end)
+    local scope = { type = scope_type, value = S.default_value_for(scope_type, ctx) }
+    UI.input_name('macro_'..p.reg, function(name)
+      if name == '' then return end
+      local existing = Store.find_by_name_scope(name, scope, state.ctx)
+      local entry = { name=name, keys=U.to_termcodes(p.text), scope=scope }
+      if existing then Store.update(existing.id, entry, state.ctx) else Store.add_many({ entry }, state.ctx) end
+      local val = scope.value or ''
+      if scope.type == 'file' or scope.type == 'directory' or scope.type == 'cwd' then
+        val = vim.fn.fnamemodify(val, ':~')
+      end
+      U.info(('Saved %s macro %s for %s'):format(scope_type, name, val))
     end)
-  end)
+  end
+
+  map('n', '<C-g>', function() save_current('global') end)
+  map('n', '<C-t>', function() save_current('filetype') end)
+  map('n', '<C-f>', function() save_current('file') end)
+  map('n', '<C-s>', function() save_current('session') end)
+  map('n', '<C-d>', function() save_current('directory') end)
+  map('n', '<C-p>', function() save_current('cwd') end)
+
+  map('n', '<Tab>', function() E.close(); require('macrobank.saved_editor').open(state.ctx) end)
 
   -- Close
   map('n', 'q', E.close)
 end
 
--- Export helpers ---------------------------------------------------------
-local function to_entries(sel)
-  local out = {}
-  for _, item in ipairs(sel) do
-    local keys = U.to_termcodes(item.text or '')
-    table.insert(out, { name = nil, keys = keys })
-  end
-  return out
-end
-
-function E._export_prompt(sel)
-  UI.input_name('macro_' .. (sel[1] and sel[1].reg or 'x'), function(base_name)
-    if base_name == '' then return end
-    UI.input_scope(function(scope)
-      if not scope then return end
-      local entries = to_entries(sel)
-      local many = #entries > 1
-      for i, e in ipairs(entries) do
-        e.name = many and (base_name .. '_' .. (sel[i].reg)) or base_name
-        e.scope = scope
-        local dup = Store.find_by_name_scope(e.name, e.scope)
-        if dup then
-          UI.resolve_conflict(e.name, e.scope, function(choice)
-            if choice == 'Rename (choose a new name)' then
-              vim.ui.input({ prompt = 'New name:', default = e.name .. '_1' }, function(n)
-                if not n or n == '' then return end
-                e.name = n; Store.add_many({ e }); U.info('Saved as '..n)
-              end)
-            elseif choice == 'Overwrite (replace existing)' then
-              Store.update(dup.id, { name = e.name, keys = e.keys, scope = e.scope }); U.info('Overwrote '..e.name)
-            elseif choice == 'Duplicate (auto-suffix)' then
-              e.name = e.name .. '_' .. string.sub(U.uuid(), 1, 4); Store.add_many({ e }); U.info('Saved duplicate '..e.name)
-            else
-              U.info('Canceled')
-            end
-          end)
-        else
-          Store.add_many({ e }); U.info('Saved '..e.name)
-        end
-      end
-    end)
-  end)
-end
-
 -- Public API
-function E.open()
-  state.regs = collect_regs(); ensure()
+function E.open(ctx)
+  state.regs = collect_regs()
+  state.ctx = ctx or S.current_context(function() return Store.get_session_id() end)
+  ensure()
 end
 
 function E.close()

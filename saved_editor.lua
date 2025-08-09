@@ -7,25 +7,23 @@ local UI = require('macrobank.ui')
 local B = {}
 local cfg = nil
 
-local state = { buf=nil, win=nil, header_lines=7, rows={}, id_by_row={}, virt_ns=nil }
+local state = { buf=nil, win=nil, header_lines=0, rows={}, id_by_row={}, virt_ns=nil, header_ns=nil, last_run_keys=nil, ctx=nil }
 
 function B.setup(config) cfg = config end
 
-local function header_lines()
-  local i = cfg and cfg.nerd_icons
-  local ico = function(k, fallback)
-    if not i then return fallback end
-    return ({ Play='', Save='', Select='󰆾', Delete='', History='', Map='', Export='󰆐', Search='' })[k] or fallback
-  end
-  return {
+local function render_header()
+  if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_bank_header') end
+  local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
+  local hdr = {
     'MacroBank — Saved Macro Bank',
-    string.format(' %-9s %-16s %-18s %-16s %-14s %-12s %-12s %-10s', 'Ops:', ico('Play','Play: r'), ico('Save','Save: <CR>'), ico('Select','Select: L'), ico('Delete','Delete: dd'), ico('History','History: H'), ico('Map','Keymap: M'), ico('Export','Lua: X'), ico('Search','Search: /')),
-    '  • Edit: change name or keys (right side); <CR> saves. dd deletes.',
-    '  • L: load into default register; r: play directly using temp register.',
-    '  • H: view versions; rollback. M: generate keymap. X: export as Lua snippet(s).',
-    '  • Groups: context-matching macros appear first; scope labels shown as ghost text.',
-    '—',
+    'Ops: Update <C-u> | Select <CR> | Play <C-CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
+    U.hr('', width, '─'),
   }
+  local virt = {}
+  for i, line in ipairs(hdr) do
+    virt[i] = { { line, (i==1) and 'Title' or 'Comment' } }
+  end
+  vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, 0, 0, { virt_lines = virt, virt_lines_above = true })
 end
 
 local function ensure_ns()
@@ -41,30 +39,65 @@ local function set_scope_ghost(row, scope)
 end
 
 local function lines_for_bank()
-  local eligible, others = Store.partition_by_context()
+  local ctx = state.ctx
+  local eligible, others = Store.partition_by_context(ctx)
   table.sort(eligible, function(a,b) return a.name < b.name end)
-  table.sort(others,    function(a,b) return a.name < b.name end)
 
-  local rows, ids = {}, {}
-  local function push_group(title, list)
-    if #rows > 0 then rows[#rows+1] = ''; ids[#ids+1] = nil end
-    rows[#rows+1] = title; ids[#ids+1] = '__group__'
-    for _, m in ipairs(list) do rows[#rows+1] = string.format('%s  %s', m.name, U.readable(m.keys)); ids[#ids+1] = m.id end
+  local groups = {}
+  for _, m in ipairs(others) do
+    local label = S.label(m.scope, cfg and cfg.nerd_icons)
+    local key = label
+    groups[key] = groups[key] or { label = label, macros = {} }
+    table.insert(groups[key].macros, m)
   end
-  if #eligible > 0 then push_group('— context macros —', eligible) end
-  if #others > 0 then push_group('— other macros —', others) end
-  return rows, ids
+
+  local rows, ids, headers, show_scope = {}, {}, {}, {}
+  if #eligible > 0 then
+    headers[1] = 'Active macros'
+    for _, m in ipairs(eligible) do
+      rows[#rows+1] = string.format('%s  %s', m.name, U.readable(m.keys))
+      ids[#ids+1] = m.id
+      show_scope[#rows] = true
+    end
+  end
+
+  local ordered = {}
+  for _, g in pairs(groups) do table.insert(ordered, g) end
+  table.sort(ordered, function(a,b) return a.label < b.label end)
+
+  for _, g in ipairs(ordered) do
+    headers[#rows+1] = g.label
+    table.sort(g.macros, function(a,b) return a.name < b.name end)
+    for _, m in ipairs(g.macros) do
+      rows[#rows+1] = string.format('%s  %s', m.name, U.readable(m.keys))
+      ids[#ids+1] = m.id
+    end
+  end
+  return rows, ids, headers, show_scope
 end
 
 local function redraw()
-  local rows, ids = lines_for_bank()
+  local rows, ids, headers, show_scope = lines_for_bank()
   state.rows, state.id_by_row = rows, ids
   vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, rows)
+  render_header()
 
   ensure_ns(); vim.api.nvim_buf_clear_namespace(state.buf, state.virt_ns, 0, -1)
   local line = state.header_lines
-  local all = Store.all(); local by_id = {}; for _, m in ipairs(all) do by_id[m.id] = m end
-  for i, id in ipairs(ids) do if id and id ~= '__group__' then set_scope_ghost(line+i, by_id[id].scope) end end
+  local all = Store.all(state.ctx); local by_id = {}; for _, m in ipairs(all) do by_id[m.id] = m end
+  local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
+  for i, id in ipairs(ids) do
+    local row = line + i
+    if id and show_scope[i] then
+      set_scope_ghost(row, by_id[id].scope)
+    end
+  end
+  for idx, label in ipairs(headers) do
+    vim.api.nvim_buf_set_extmark(state.buf, state.virt_ns, line + idx -1, 0, {
+      virt_lines = { { { U.hr_left(label, width, '-'), 'Comment' } } },
+      virt_lines_above = true,
+    })
+  end
 end
 
 local function ensure()
@@ -72,78 +105,92 @@ local function ensure()
   state.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[state.buf].buftype='nofile'; vim.bo[state.buf].bufhidden='wipe'; vim.bo[state.buf].swapfile=false; vim.bo[state.buf].filetype='macrobank'
 
-  local width = math.max(60, math.floor(vim.o.columns*0.7))
-  local height= math.max(20, math.floor(vim.o.lines*0.7))
+  local w = (cfg and cfg.window and cfg.window.width) or 0.7
+  local h = (cfg and cfg.window and cfg.window.height) or 0.7
+  local width = math.max(50, (w < 1) and math.floor(vim.o.columns * w) or w)
+  local height= math.max(18, (h < 1) and math.floor(vim.o.lines * h) or h)
   local row   = math.floor((vim.o.lines-height)/2-1)
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
-
-  local hdr = header_lines()
-  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, hdr)
-  for i=0, state.header_lines-2 do vim.api.nvim_buf_add_highlight(state.buf, -1, (i==0) and 'Title' or 'Comment', i, 0, -1) end
 
   redraw(); vim.bo[state.buf].modifiable = true
 
   local map = function(mode, lhs, rhs) vim.keymap.set(mode, lhs, rhs, { buffer=state.buf, silent=true, nowait=true }) end
 
-  -- Save current row
-  map('n', '<CR>', function()
+  -- Update current macro
+  map('n', '<C-u>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local line = vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]
-    local p = require('macrobank.util').parse_bank_line(line); if not p then return end
-    Store.update(id, { name = p.name, keys = require('macrobank.util').to_termcodes(p.text) })
-    redraw(); require('macrobank.util').info('Saved "'..p.name..'"')
+    local p = U.parse_bank_line(line); if not p then return end
+    Store.update(id, { name = p.name, keys = U.to_termcodes(p.text) }, state.ctx)
+    redraw(); U.info('Updated "'..p.name..'"')
   end)
 
-  -- Delete (dd)
+  -- Delete current macro
   map('n', 'dd', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    Store.delete(id); redraw(); require('macrobank.util').info('Deleted macro')
+    Store.delete(id, state.ctx); redraw(); U.info('Deleted macro')
   end)
 
-  -- Select (load into default register)
-  map('n', 'L', function()
+  -- Select macro into default register
+  map('n', '<CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
+    local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
     if not macro then return end
     local reg = (cfg and cfg.default_select_register) or 'q'
-    vim.fn.setreg(reg, macro.keys, 'n'); require('macrobank.util').info(('Selected "%s" → @%s'):format(macro.name, reg))
+    vim.fn.setreg(reg, macro.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
   end)
 
-  -- Play directly (using temp register)
-  map('n', 'r', function()
+  -- Play macro
+  map('n', '<C-CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
+    local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
     if not macro then return end
+    state.last_run_keys = macro.keys
     local reg = (cfg and cfg.default_play_register) or 'q'
     local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, macro.keys, 'n')
     local count = vim.v.count1
     B.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, reg)); vim.fn.setreg(reg, prev, 'n') end)
   end)
 
-  -- History / rollback
-  map('n', 'H', function()
+  -- Repeat last played macro
+  map('n', '.', function()
+    if not state.last_run_keys then return U.warn('No macro played yet') end
+    local reg = (cfg and cfg.default_play_register) or 'q'
+    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, state.last_run_keys, 'n')
+    local count = vim.v.count1
+    B.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, reg)); vim.fn.setreg(reg, prev, 'n') end)
+  end)
+
+  -- Load macro into chosen register
+  map('n', '@', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    local hist = Store.history(id)
-    if #hist == 0 then return require('macrobank.util').warn('No history') end
+    local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
+    if not macro then return end
+    local reg = vim.fn.getcharstr()
+    if not reg or reg == '' then return end
+    vim.fn.setreg(reg, macro.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
+  end)
+
+  -- History / rollback
+  map('n', '<C-h>', function()
+    local row = vim.api.nvim_win_get_cursor(state.win)[1]
+    local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
+    local hist = Store.history(id, state.ctx)
+    if #hist == 0 then return U.warn('No history') end
     local items = {}
     for i=#hist,1,-1 do local h = hist[i]; table.insert(items, string.format('%s — %s', h.updated_at or '?', U.readable(h.keys or ''))) end
     vim.ui.select(items, { prompt = 'Rollback to version' }, function(choice)
       if not choice then return end
       local sel_idx = nil; for i, it in ipairs(items) do if it == choice then sel_idx = i; break end end
       local h = hist[#hist - sel_idx + 1]
-      if h then Store.update(id, { keys = h.keys, name = h.name }) end
-      redraw(); require('macrobank.util').info('Rolled back')
+      if h then Store.update(id, { keys = h.keys, name = h.name }, state.ctx) end
+      redraw(); U.info('Rolled back')
     end)
   end)
 
@@ -152,9 +199,9 @@ local function ensure()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
+    local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
     if not macro then return end
-    local lua = string.format([[-- MacroBank export
+    local lua = string.format([[-- MacroBank snippet
 return {
   name = %q,
   scope = %q,
@@ -168,7 +215,7 @@ return {
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
+    local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
     if not macro then return end
     vim.ui.input({ prompt = 'Map key (e.g., <leader>mk):' }, function(lhs)
       if not lhs or lhs == '' then return end
@@ -192,15 +239,20 @@ end, { desc = 'Play macro: %s' })]], mode, lhs, (cfg.default_play_register or 'q
     UI.search_macros(function(m)
       if not m then return end
       local reg = (cfg and cfg.default_select_register) or 'q'
-      vim.fn.setreg(reg, m.keys, 'n'); require('macrobank.util').info(('Loaded "%s" → @%s'):format(m.name, reg))
-    end)
+      vim.fn.setreg(reg, m.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(m.name, reg))
+    end, state.ctx)
   end)
+
+  map('n', '<Tab>', function() B.close(); require('macrobank.editor').open(state.ctx) end)
 
   -- Close
   map('n', 'q', B.close)
 end
 
-function B.open() ensure() end
+function B.open(ctx)
+  state.ctx = ctx or S.current_context(function() return Store.get_session_id() end)
+  ensure()
+end
 
 function B.close()
   if state.win and vim.api.nvim_win_is_valid(state.win) then vim.api.nvim_win_close(state.win, true) end

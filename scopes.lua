@@ -16,12 +16,11 @@ local function icon(kind, nerd)
 end
 
 function S.current_context(get_session_id)
-  local file = vim.api.nvim_buf_get_name(0)
-  local file_abs = vim.fn.fnamemodify(file, ':p')
-  local dir = file_abs ~= '' and vim.fn.fnamemodify(file_abs, ':h') or vim.loop.cwd()
+  local file = vim.fn.expand('%:p')
+  local dir = file ~= '' and vim.fn.fnamemodify(file, ':h') or vim.fn.getcwd()
   local ft = vim.bo.filetype or ''
-  local cwd = vim.loop.cwd() or ''
-  return { file = file_abs, dir = dir, filetype = ft, cwd = cwd, session = get_session_id() }
+  local cwd = vim.fn.getcwd()
+  return { file = file, dir = dir, filetype = ft, cwd = cwd, session = get_session_id() }
 end
 
 -- Return default scope value for a type given current context
@@ -40,16 +39,21 @@ function S.matches(scope, ctx)
   local t, v = scope.type, scope.value
   if t == 'global' then return true end
   if t == 'filetype' then return ctx.filetype ~= '' and ctx.filetype == v end
-  if t == 'cwd' then return ctx.cwd ~= '' and ctx.cwd == v end
+  if t == 'cwd' then
+    local c = vim.fn.fnamemodify(ctx.cwd or '', ':p')
+    local vabs = vim.fn.fnamemodify(v or '', ':p')
+    return c ~= '' and c == vabs
+  end
   if t == 'file' then
     local f = vim.fn.fnamemodify(v or '', ':p')
-    return f ~= '' and ctx.file == f
+    local ctxf = vim.fn.fnamemodify(ctx.file or '', ':p')
+    return f ~= '' and ctxf == f
   end
   if t == 'session' then return ctx.session == v end
   if t == 'directory' then
     if not v or v == '' then return false end
     local dir = vim.fn.fnamemodify(v, ':p')
-    local file = ctx.file or ''
+    local file = vim.fn.fnamemodify(ctx.file or '', ':p')
     if dir == '' or file == '' then return false end
     return file:sub(1, #dir) == dir
   end
@@ -58,13 +62,15 @@ end
 
 -- Human label for scope (for UI)
 function S.label(scope, nerd)
-  if not scope or not scope.type then return '[?]' end
+  if not scope or not scope.type then return '?' end
   local t = scope.type
   local i = icon(t, nerd)
   local v = scope.value
-  if t == 'file' or t == 'directory' then if v then v = vim.fn.fnamemodify(v, ':.') end end
-  if v and v ~= '' then return string.format('[%s %s:%s]', i, t, v) end
-  return string.format('[%s %s]', i, t)
+  if v and (t == 'directory' or t == 'file' or t == 'cwd') then
+    v = vim.fn.fnamemodify(v, ':~')
+  end
+  if v and v ~= '' then return string.format('%s %s(%s)', i, t, v) end
+  return string.format('%s %s', i, t)
 end
 
 return S
