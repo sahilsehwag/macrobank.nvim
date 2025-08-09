@@ -13,18 +13,18 @@ function B.setup(config) cfg = config end
 
 local function render_header()
   if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_bank_header') end
-  vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Saved Macro Bank',
     'Ops: Update <C-u> | Select @@ | Play <CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
     U.hr('', width, '─'),
   }
-  local virt = {}
-  for i, line in ipairs(hdr) do
-    virt[i] = { { line, (i==1) and 'Title' or 'Comment' } }
+  state.header_lines = #hdr
+  vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, hdr)
+  vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
+  for i, _ in ipairs(hdr) do
+    vim.api.nvim_buf_add_highlight(state.buf, state.header_ns, (i==1) and 'Title' or 'Comment', i-1, 0, -1)
   end
-  vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, 0, 0, { virt_lines = virt, virt_lines_above = true })
 end
 
 local function ensure_ns()
@@ -34,7 +34,7 @@ end
 local function set_scope_ghost(row, scope)
   ensure_ns()
   vim.api.nvim_buf_set_extmark(state.buf, state.virt_ns, row-1, 0, {
-    virt_text = { { S.label(scope, cfg and cfg.nerd_icons), 'Comment' } },
+    virt_text = { { S.label(scope, cfg and cfg.nerd_icons), 'Title' } },
     virt_text_pos = 'eol', hl_mode = 'combine',
   })
 end
@@ -44,11 +44,12 @@ local function lines_for_bank()
   local eligible, others = Store.partition_by_context(ctx)
   table.sort(eligible, function(a,b) return a.name < b.name end)
 
+  local order = { global=1, filetype=2, cwd=3, session=4, directory=5, file=6 }
   local groups = {}
   for _, m in ipairs(others) do
-    local label = S.label(m.scope, cfg and cfg.nerd_icons)
-    local key = label
-    groups[key] = groups[key] or { label = label, macros = {} }
+    local s = m.scope or { type = 'global' }
+    local key = s.type .. '|' .. (s.value or '')
+    groups[key] = groups[key] or { scope = s, macros = {} }
     table.insert(groups[key].macros, m)
   end
 
@@ -68,10 +69,17 @@ local function lines_for_bank()
 
   local ordered = {}
   for _, g in pairs(groups) do table.insert(ordered, g) end
-  table.sort(ordered, function(a,b) return a.label < b.label end)
+  table.sort(ordered, function(a,b)
+    local oa = order[a.scope.type] or 99
+    local ob = order[b.scope.type] or 99
+    if oa ~= ob then return oa < ob end
+    local va = a.scope.value or ''
+    local vb = b.scope.value or ''
+    return va < vb
+  end)
   for _, g in ipairs(ordered) do
     table.sort(g.macros, function(a,b) return a.name < b.name end)
-    add_group(g.label, g.macros, false)
+    add_group(S.label(g.scope, cfg and cfg.nerd_icons), g.macros, false)
   end
 
   return rows, ids, headers, show_scope
@@ -80,6 +88,7 @@ end
 local function redraw()
   local rows, ids, headers, show_scope = lines_for_bank()
   state.rows, state.id_by_row = rows, ids
+  render_header()
   vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, rows)
 
   ensure_ns(); vim.api.nvim_buf_clear_namespace(state.buf, state.virt_ns, 0, -1)
@@ -99,8 +108,6 @@ local function redraw()
       set_scope_ghost(row, by_id[id].scope)
     end
   end
-
-  render_header()
 end
 
 local function ensure()

@@ -28,28 +28,42 @@ end
 function UI.select_macro(cb, ctx)
   local all = Store.all(ctx)
   local cur = ctx or S.current_context(function() return Store.get_session_id() end)
-  local groups = {}
+  local order = { global=1, filetype=2, cwd=3, session=4, directory=5, file=6 }
+  local active, groups = {}, {}
   for _, m in ipairs(all) do
-    local label
     if S.matches(m.scope, cur) then
-      label = 'Active macros'
+      table.insert(active, m)
     else
-      label = S.label(m.scope, cfg and cfg.nerd_icons)
+      local s = m.scope or { type = 'global' }
+      local key = s.type .. '|' .. (s.value or '')
+      groups[key] = groups[key] or { scope = s, macros = {} }
+      table.insert(groups[key].macros, m)
     end
-    groups[label] = groups[label] or { label = label, macros = {} }
-    table.insert(groups[label].macros, m)
   end
 
+  table.sort(active, function(a,b) return a.name < b.name end)
   local ordered = {}
   for _, g in pairs(groups) do table.insert(ordered, g) end
-  table.sort(ordered, function(a,b) return a.label < b.label end)
+  table.sort(ordered, function(a,b)
+    local oa = order[a.scope.type] or 99
+    local ob = order[b.scope.type] or 99
+    if oa ~= ob then return oa < ob end
+    local va = a.scope.value or ''
+    local vb = b.scope.value or ''
+    return va < vb
+  end)
+
   local final = {}
-  for _, g in ipairs(ordered) do if g.label == 'Active macros' then table.insert(final, 1, g) else final[#final+1] = g end end
+  if #active > 0 then final[#final+1] = { label = 'Active macros', macros = active } end
+  for _, g in ipairs(ordered) do
+    table.sort(g.macros, function(a,b) return a.name < b.name end)
+    g.label = S.label(g.scope, cfg and cfg.nerd_icons)
+    final[#final+1] = g
+  end
 
   local items, map = {}, {}
   for _, g in ipairs(final) do
     table.insert(items, U.hr(g.label, 60, '-')); table.insert(map, { __sep = true })
-    table.sort(g.macros, function(a,b) return a.name < b.name end)
     for _, m in ipairs(g.macros) do table.insert(items, UI.picker_label(m)); table.insert(map, m) end
   end
 
