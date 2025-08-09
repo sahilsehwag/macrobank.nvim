@@ -26,10 +26,10 @@ end
 -- Return default scope value for a type given current context
 function S.default_value_for(kind, ctx)
   if kind == 'filetype' then return ctx.filetype end
-  if kind == 'cwd'      then return ctx.cwd end
-  if kind == 'file'     then return ctx.file end
+  if kind == 'cwd'      then return vim.fn.fnamemodify(ctx.cwd, ':~') end
+  if kind == 'file'     then return vim.fn.fnamemodify(ctx.file, ':~') end
   if kind == 'session'  then return ctx.session end
-  if kind == 'directory'then return ctx.dir end
+  if kind == 'directory'then return vim.fn.fnamemodify(ctx.dir, ':~') end
   return nil -- global
 end
 
@@ -61,10 +61,8 @@ function S.label(scope, nerd)
   local t = scope.type
   local i = icon(t, nerd)
   local v = scope.value
-  if t == 'directory' and v then
-    v = vim.fn.pathshorten(vim.fn.fnamemodify(v, ':.'))
-  elseif t == 'file' and v then
-    v = string.format('%s/%s', vim.fn.fnamemodify(v, ':h:t'), vim.fn.fnamemodify(v, ':t'))
+  if v and (t == 'directory' or t == 'file' or t == 'cwd') then
+    v = vim.fn.fnamemodify(v, ':~')
   end
   if v and v ~= '' then return string.format('%s %s(%s)', i, t, v) end
   return string.format('%s %s', i, t)

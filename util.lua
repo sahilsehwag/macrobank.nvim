@@ -44,16 +44,17 @@ function U.matchfuzzy(list, query)
   return out
 end
 
--- Horizontal rule with centered text
+-- Horizontal rule with left-aligned text ("-- text ------")
 function U.hr(text, width, ch)
   ch = ch or '-'
   width = width or vim.o.columns
-  local t = text and text ~= '' and (' '..text..' ') or ''
-  local fill = width - #t
-  if fill < 0 then fill = 0 end
-  local left = math.floor(fill/2)
-  local right = fill - left
-  return string.rep(ch, left)..t..string.rep(ch, right)
+  if text and text ~= '' then
+    local prefix = '-- ' .. text .. ' '
+    local fill = width - #prefix
+    if fill < 0 then fill = 0 end
+    return prefix .. string.rep(ch, fill)
+  end
+  return string.rep(ch, width)
 end
 
 return U
