@@ -30,7 +30,7 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
-    'Ops: Update <C-u> | Play <C-CR> | Repeat . | Delete dd | Load @',
+    'Ops: Update <C-u> | Play <CR> | Repeat . | Delete dd | Load @',
     'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
     U.hr('', width, '─'),
   }
@@ -76,7 +76,7 @@ local function ensure()
   end)
 
   -- Play current register
-  map('n', '<C-CR>', function()
+  map('n', '<CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
     state.last_run_reg = p.reg

@@ -16,7 +16,7 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Saved Macro Bank',
-    'Ops: Update <C-u> | Select <CR> | Play <C-CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
+    'Ops: Update <C-u> | Select @@ | Play <CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
     U.hr('', width, '─'),
   }
   local virt = {}
@@ -133,7 +133,7 @@ local function ensure()
   end)
 
   -- Select macro into default register
-  map('n', '<CR>', function()
+  map('n', '@@', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
@@ -143,7 +143,7 @@ local function ensure()
   end)
 
   -- Play macro
-  map('n', '<C-CR>', function()
+  map('n', '<CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
@@ -171,7 +171,7 @@ local function ensure()
     local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
     if not macro then return end
     local reg = vim.fn.getcharstr()
-    if not reg or reg == '' then return end
+    if not reg or reg == '' or reg == '@' then return end
     vim.fn.setreg(reg, macro.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
   end)
 
