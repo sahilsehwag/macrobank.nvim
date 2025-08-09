@@ -27,7 +27,6 @@ end
 
 local function render_header()
   if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_live_header') end
-  vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
@@ -35,11 +34,12 @@ local function render_header()
     'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
     U.hr('', width, '─'),
   }
-  local virt = {}
-  for i, line in ipairs(hdr) do
-    virt[i] = { { line, (i==1) and 'Title' or 'Comment' } }
+  state.header_lines = #hdr
+  vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, hdr)
+  vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
+  for i, _ in ipairs(hdr) do
+    vim.api.nvim_buf_add_highlight(state.buf, state.header_ns, (i==1) and 'Title' or 'Comment', i-1, 0, -1)
   end
-  vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, 0, 0, { virt_lines = virt, virt_lines_above = true })
 end
 
 local function ensure()
@@ -55,8 +55,8 @@ local function ensure()
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
 
-  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines_for_view())
   render_header()
+  vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, lines_for_view())
   vim.bo[state.buf].modifiable = true
 
   if state.last_run_reg then
