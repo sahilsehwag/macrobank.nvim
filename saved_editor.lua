@@ -7,25 +7,22 @@ local UI = require('macrobank.ui')
 local B = {}
 local cfg = nil
 
-local state = { buf=nil, win=nil, header_lines=7, rows={}, id_by_row={}, virt_ns=nil }
+local state = { buf=nil, win=nil, header_lines=0, rows={}, id_by_row={}, virt_ns=nil, header_ns=nil, last_run_keys=nil }
 
 function B.setup(config) cfg = config end
 
-local function header_lines()
-  local i = cfg and cfg.nerd_icons
-  local ico = function(k, fallback)
-    if not i then return fallback end
-    return ({ Play='', Save='', Select='󰆾', Delete='', History='', Map='', Export='󰆐', Search='' })[k] or fallback
-  end
-  return {
+local function render_header()
+  if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_bank_header') end
+  local hdr = {
     'MacroBank — Saved Macro Bank',
-    string.format(' %-9s %-16s %-18s %-16s %-14s %-12s %-12s %-10s', 'Ops:', ico('Play','Play: r'), ico('Save','Save: <CR>'), ico('Select','Select: L'), ico('Delete','Delete: dd'), ico('History','History: H'), ico('Map','Keymap: M'), ico('Export','Lua: X'), ico('Search','Search: /')),
-    '  • Edit: change name or keys (right side); <CR> saves. dd deletes.',
-    '  • L: load into default register; r: play directly using temp register.',
-    '  • H: view versions; rollback. M: generate keymap. X: export as Lua snippet(s).',
-    '  • Groups: context-matching macros appear first; scope labels shown as ghost text.',
+    'Ops: Update <C-u> | Select <CR> | Play <C-CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
     '—',
   }
+  local virt = {}
+  for i, line in ipairs(hdr) do
+    virt[i] = { { line, (i==1) and 'Title' or 'Comment' } }
+  end
+  vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, 0, 0, { virt_lines = virt, virt_lines_above = true })
 end
 
 local function ensure_ns()
@@ -78,64 +75,78 @@ local function ensure()
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
 
-  local hdr = header_lines()
-  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, hdr)
-  for i=0, state.header_lines-2 do vim.api.nvim_buf_add_highlight(state.buf, -1, (i==0) and 'Title' or 'Comment', i, 0, -1) end
+  render_header()
 
   redraw(); vim.bo[state.buf].modifiable = true
 
   local map = function(mode, lhs, rhs) vim.keymap.set(mode, lhs, rhs, { buffer=state.buf, silent=true, nowait=true }) end
 
-  -- Save current row
-  map('n', '<CR>', function()
+  -- Update current macro
+  map('n', '<C-u>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local line = vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]
-    local p = require('macrobank.util').parse_bank_line(line); if not p then return end
-    Store.update(id, { name = p.name, keys = require('macrobank.util').to_termcodes(p.text) })
-    redraw(); require('macrobank.util').info('Saved "'..p.name..'"')
+    local p = U.parse_bank_line(line); if not p then return end
+    Store.update(id, { name = p.name, keys = U.to_termcodes(p.text) })
+    redraw(); U.info('Updated "'..p.name..'"')
   end)
 
-  -- Delete (dd)
+  -- Delete current macro
   map('n', 'dd', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
-    Store.delete(id); redraw(); require('macrobank.util').info('Deleted macro')
+    Store.delete(id); redraw(); U.info('Deleted macro')
   end)
 
-  -- Select (load into default register)
-  map('n', 'L', function()
+  -- Select macro into default register
+  map('n', '<CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
     if not macro then return end
     local reg = (cfg and cfg.default_select_register) or 'q'
-    vim.fn.setreg(reg, macro.keys, 'n'); require('macrobank.util').info(('Selected "%s" → @%s'):format(macro.name, reg))
+    vim.fn.setreg(reg, macro.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
   end)
 
-  -- Play directly (using temp register)
-  map('n', 'r', function()
+  -- Play macro
+  map('n', '<C-CR>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
     if not macro then return end
+    state.last_run_keys = macro.keys
     local reg = (cfg and cfg.default_play_register) or 'q'
     local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, macro.keys, 'n')
     local count = vim.v.count1
     B.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, reg)); vim.fn.setreg(reg, prev, 'n') end)
   end)
 
-  -- History / rollback
-  map('n', 'H', function()
+  -- Repeat last played macro
+  map('n', '.', function()
+    if not state.last_run_keys then return U.warn('No macro played yet') end
+    local reg = (cfg and cfg.default_play_register) or 'q'
+    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, state.last_run_keys, 'n')
+    local count = vim.v.count1
+    B.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, reg)); vim.fn.setreg(reg, prev, 'n') end)
+  end)
+
+  -- Load macro into chosen register
+  map('n', '@', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
-    if row <= state.header_lines then return end
+    local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
+    local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
+    if not macro then return end
+    local reg = vim.fn.getcharstr()
+    if not reg or reg == '' then return end
+    vim.fn.setreg(reg, macro.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
+  end)
+
+  -- History / rollback
+  map('n', '<C-h>', function()
+    local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local hist = Store.history(id)
-    if #hist == 0 then return require('macrobank.util').warn('No history') end
+    if #hist == 0 then return U.warn('No history') end
     local items = {}
     for i=#hist,1,-1 do local h = hist[i]; table.insert(items, string.format('%s — %s', h.updated_at or '?', U.readable(h.keys or ''))) end
     vim.ui.select(items, { prompt = 'Rollback to version' }, function(choice)
@@ -143,7 +154,7 @@ local function ensure()
       local sel_idx = nil; for i, it in ipairs(items) do if it == choice then sel_idx = i; break end end
       local h = hist[#hist - sel_idx + 1]
       if h then Store.update(id, { keys = h.keys, name = h.name }) end
-      redraw(); require('macrobank.util').info('Rolled back')
+      redraw(); U.info('Rolled back')
     end)
   end)
 
@@ -154,7 +165,7 @@ local function ensure()
     local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id or id == '__group__' then return end
     local macro = nil; for _, m in ipairs(Store.all()) do if m.id == id then macro = m; break end end
     if not macro then return end
-    local lua = string.format([[-- MacroBank export
+    local lua = string.format([[-- MacroBank snippet
 return {
   name = %q,
   scope = %q,
@@ -192,9 +203,11 @@ end, { desc = 'Play macro: %s' })]], mode, lhs, (cfg.default_play_register or 'q
     UI.search_macros(function(m)
       if not m then return end
       local reg = (cfg and cfg.default_select_register) or 'q'
-      vim.fn.setreg(reg, m.keys, 'n'); require('macrobank.util').info(('Loaded "%s" → @%s'):format(m.name, reg))
+      vim.fn.setreg(reg, m.keys, 'n'); U.info(('Loaded "%s" → @%s'):format(m.name, reg))
     end)
   end)
+
+  map('n', '<Tab>', function() B.close(); require('macrobank.editor').open() end)
 
   -- Close
   map('n', 'q', B.close)

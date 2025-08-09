@@ -33,6 +33,22 @@ function M.setup(user)
   -- Commands
   vim.api.nvim_create_user_command('MacroBankLive', function() require('macrobank.editor').open() end, {})
   vim.api.nvim_create_user_command('MacroBank',     function() require('macrobank.saved_editor').open() end, {})
+  vim.api.nvim_create_user_command('MacroBankPlay', function(opts)
+    local Store = require('macrobank.store')
+    local U = require('macrobank.util')
+    local name = opts.args
+    local macro = nil
+    for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
+    if not macro then return U.warn('Macro not found') end
+    local reg = (M.config.default_play_register) or 'q'
+    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, macro.keys, 'n')
+    if opts.range > 0 then
+      vim.cmd(('%d,%dnormal! @%s'):format(opts.line1, opts.line2, reg))
+    else
+      vim.cmd(('normal! @%s'):format(reg))
+    end
+    vim.fn.setreg(reg, prev, 'n')
+  end, { nargs=1, range=true })
 
   -- Sample mappings (optional)
   if M.config.mappings and M.config.mappings.open_live then

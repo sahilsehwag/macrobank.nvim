@@ -16,12 +16,11 @@ local function icon(kind, nerd)
 end
 
 function S.current_context(get_session_id)
-  local file = vim.api.nvim_buf_get_name(0)
-  local file_abs = vim.fn.fnamemodify(file, ':p')
-  local dir = file_abs ~= '' and vim.fn.fnamemodify(file_abs, ':h') or vim.loop.cwd()
+  local file = vim.fn.expand('%:p')
+  local dir = file ~= '' and vim.fn.fnamemodify(file, ':h') or vim.fn.getcwd()
   local ft = vim.bo.filetype or ''
-  local cwd = vim.loop.cwd() or ''
-  return { file = file_abs, dir = dir, filetype = ft, cwd = cwd, session = get_session_id() }
+  local cwd = vim.fn.getcwd()
+  return { file = file, dir = dir, filetype = ft, cwd = cwd, session = get_session_id() }
 end
 
 -- Return default scope value for a type given current context

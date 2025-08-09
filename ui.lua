@@ -8,10 +8,22 @@ local cfg = nil
 function UI.setup(config) cfg = config end
 
 -- Picker label: [scope] Name  —  «keys»
+local function context_for(scope)
+  if not scope or not scope.type then return '' end
+  local v = scope.value or ''
+  if scope.type == 'directory' then
+    v = vim.fn.pathshorten(v)
+  elseif scope.type == 'file' then
+    v = string.format('%s/%s', vim.fn.fnamemodify(v, ':h:t'), vim.fn.fnamemodify(v, ':t'))
+  end
+  return v
+end
+
 function UI.picker_label(m)
-  local scope = S.label(m.scope, cfg and cfg.nerd_icons)
-  local keys  = U.readable(m.keys)
-  return string.format('%s  %s  —  %s', scope, m.name, keys ~= '' and ('«'..keys..'»') or '∅')
+  local scope = m.scope and m.scope.type or 'global'
+  local ctx = context_for(m.scope)
+  if ctx ~= '' then return string.format('[%s] %s %s', scope, m.name, ctx) end
+  return string.format('[%s] %s', scope, m.name)
 end
 
 -- Context-aware select; returns chosen macro
