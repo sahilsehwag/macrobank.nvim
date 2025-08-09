@@ -27,8 +27,8 @@ function UI.picker_label(m)
 end
 
 -- Context-aware select; returns chosen macro
-function UI.select_macro(cb)
-  local eligible, others = Store.partition_by_context()
+function UI.select_macro(cb, ctx)
+  local eligible, others = Store.partition_by_context(ctx)
   table.sort(eligible, function(a,b) return a.name < b.name end)
   table.sort(others,    function(a,b) return a.name < b.name end)
 
@@ -52,12 +52,12 @@ function UI.input_name(default_name, cb)
   end)
 end
 
-function UI.input_scope(cb)
+function UI.input_scope(cb, ctx)
   local scopes = { 'global', 'filetype', 'session', 'cwd', 'file', 'directory' }
   vim.ui.select(scopes, { prompt = 'Scope' }, function(kind)
     if not kind then return cb(nil) end
-    local ctx = S.current_context(function() return Store.get_session_id() end)
-    cb({ type = kind, value = S.default_value_for(kind, ctx) })
+    local base = ctx or S.current_context(function() return Store.get_session_id() end)
+    cb({ type = kind, value = S.default_value_for(kind, base) })
   end)
 end
 
@@ -75,8 +75,8 @@ function UI.resolve_conflict(name, scope, cb)
 end
 
 -- Simple fuzzy search by name+keys
-function UI.search_macros(cb)
-  local all = Store.all()
+function UI.search_macros(cb, ctx)
+  local all = Store.all(ctx)
   local labels, map = {}, {}
   for _, m in ipairs(all) do
     local label = UI.picker_label(m)

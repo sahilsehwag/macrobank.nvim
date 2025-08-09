@@ -6,7 +6,7 @@ local S = require('macrobank.scopes')
 local E = {}
 local cfg = nil
 
-local state = { buf=nil, win=nil, header_lines=0, regs={}, last_run_reg=nil, header_ns=nil }
+local state = { buf=nil, win=nil, header_lines=0, regs={}, last_run_reg=nil, header_ns=nil, ctx=nil }
 
 function E.setup(config) cfg = config end
 
@@ -106,19 +106,19 @@ local function ensure()
       vim.fn.setreg(p.reg, m.keys, 'n')
       vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  %s', p.reg, U.readable(m.keys)) })
       U.info(('Loaded "%s" → @%s'):format(m.name, p.reg))
-    end)
+    end, state.ctx)
   end)
 
   local function save_current(scope_type)
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
-    local ctx = S.current_context(function() return Store.get_session_id() end)
+    local ctx = state.ctx or S.current_context(function() return Store.get_session_id() end)
     local scope = { type = scope_type, value = S.default_value_for(scope_type, ctx) }
     UI.input_name('macro_'..p.reg, function(name)
       if name == '' then return end
-      local existing = Store.find_by_name_scope(name, scope)
+      local existing = Store.find_by_name_scope(name, scope, state.ctx)
       local entry = { name=name, keys=U.to_termcodes(p.text), scope=scope }
-      if existing then Store.update(existing.id, entry) else Store.add_many({ entry }) end
+      if existing then Store.update(existing.id, entry, state.ctx) else Store.add_many({ entry }, state.ctx) end
       U.info(('Saved %s macro %s for %s'):format(scope_type, name, scope.value or ''))
     end)
   end
@@ -130,15 +130,17 @@ local function ensure()
   map('n', '<C-d>', function() save_current('directory') end)
   map('n', '<C-p>', function() save_current('cwd') end)
 
-  map('n', '<Tab>', function() E.close(); require('macrobank.saved_editor').open() end)
+  map('n', '<Tab>', function() E.close(); require('macrobank.saved_editor').open(state.ctx) end)
 
   -- Close
   map('n', 'q', E.close)
 end
 
 -- Public API
-function E.open()
-  state.regs = collect_regs(); ensure()
+function E.open(ctx)
+  state.regs = collect_regs()
+  state.ctx = ctx or S.current_context(function() return Store.get_session_id() end)
+  ensure()
 end
 
 function E.close()

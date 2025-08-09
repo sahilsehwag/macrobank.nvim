@@ -53,8 +53,8 @@ local function find_upwards(start_dir, candidates)
 end
 
 -- Compose project paths based on config
-local function project_paths()
-  local curr_file = vim.api.nvim_buf_get_name(0)
+local function project_paths(ctx)
+  local curr_file = (ctx and ctx.file and ctx.file ~= '') and ctx.file or vim.api.nvim_buf_get_name(0)
   local start_dir = curr_file ~= '' and vim.fn.fnamemodify(curr_file, ':h') or vim.loop.cwd()
 
   local list = {}
@@ -74,8 +74,8 @@ local function global_path()
 end
 
 -- Load from multiple stores and annotate source path
-local function load_all_sources()
-  local paths = project_paths()
+local function load_all_sources(ctx)
+  local paths = project_paths(ctx)
   table.insert(paths, global_path())
   local merged, by_id = { version = 2, macros = {} }, {}
   for _, p in ipairs(paths) do
@@ -106,8 +106,8 @@ local function save_to_path(path, data)
 end
 
 -- Choose a target file for a new macro, based on scope
-local function choose_target_path(scope)
-  local proj = project_paths()
+local function choose_target_path(scope, ctx)
+  local proj = project_paths(ctx)
   local default_proj_target = (#proj > 0) and proj[1] or nil
   if scope and (scope.type == 'file' or scope.type == 'directory' or scope.type == 'cwd' or scope.type == 'filetype') then
     return default_proj_target or global_path()
@@ -121,14 +121,14 @@ end
 
 function Store.get_session_id() return STATE.session_id end
 
-function Store.all()
-  return load_all_sources().macros
+function Store.all(ctx)
+  return load_all_sources(ctx).macros
 end
 
 -- Find by name+scope (exact match of type+value)
-function Store.find_by_name_scope(name, scope)
+function Store.find_by_name_scope(name, scope, ctx)
   if not name or not scope then return nil end
-  for _, m in ipairs(Store.all()) do
+  for _, m in ipairs(Store.all(ctx)) do
     if m.name == name and m.scope and m.scope.type == scope.type and (m.scope.value or '') == (scope.value or '') then
       return m
     end
@@ -136,10 +136,10 @@ function Store.find_by_name_scope(name, scope)
   return nil
 end
 
-function Store.add_many(entries)
+function Store.add_many(entries, ctx)
   -- entries: { {name, keys, scope} ... }
   for _, e in ipairs(entries) do
-    local target = choose_target_path(e.scope)
+    local target = choose_target_path(e.scope, ctx)
     local data = { version = 2, macros = {} }
     local raw = read_file(target)
     if raw and raw ~= '' then
@@ -154,9 +154,9 @@ function Store.add_many(entries)
   end
 end
 
-function Store.update(id, fields)
+function Store.update(id, fields, ctx)
   -- update within the original source file when possible
-  local all = load_all_sources().macros
+  local all = load_all_sources(ctx).macros
   local target = nil; local current = nil
   for _, m in ipairs(all) do if m.id == id then target = m.__source; current = m; break end end
   target = target or global_path()
@@ -181,9 +181,9 @@ function Store.update(id, fields)
   save_to_path(target, data)
 end
 
-function Store.delete(id)
+function Store.delete(id, ctx)
   -- delete from its source
-  local all = load_all_sources().macros
+  local all = load_all_sources(ctx).macros
   local target = nil
   for _, m in ipairs(all) do if m.id == id then target = m.__source; break end end
   target = target or global_path()
@@ -200,15 +200,15 @@ function Store.delete(id)
 end
 
 -- History helpers
-function Store.history(id)
-  for _, m in ipairs(Store.all()) do if m.id == id then return m.history or {} end end
+function Store.history(id, ctx)
+  for _, m in ipairs(Store.all(ctx)) do if m.id == id then return m.history or {} end end
   return {}
 end
 
 -- Return two arrays: eligible (match current ctx) and others
-function Store.partition_by_context()
-  local data = load_all_sources()
-  local ctx = S.current_context(function() return STATE.session_id end)
+function Store.partition_by_context(ctx)
+  local data = load_all_sources(ctx)
+  ctx = ctx or S.current_context(function() return STATE.session_id end)
   local eligible, others = {}, {}
   for _, m in ipairs(data.macros) do
     if S.matches(m.scope, ctx) then table.insert(eligible, m) else table.insert(others, m) end
