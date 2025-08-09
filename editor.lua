@@ -27,6 +27,7 @@ end
 
 local function render_header()
   if not state.header_ns then state.header_ns = vim.api.nvim_create_namespace('macrobank_live_header') end
+  vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
@@ -54,8 +55,8 @@ local function ensure()
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
 
-  render_header()
   vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines_for_view())
+  render_header()
   vim.bo[state.buf].modifiable = true
 
   if state.last_run_reg then

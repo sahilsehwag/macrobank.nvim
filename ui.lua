@@ -11,10 +11,8 @@ function UI.setup(config) cfg = config end
 local function context_for(scope)
   if not scope or not scope.type then return '' end
   local v = scope.value or ''
-  if scope.type == 'directory' then
-    v = vim.fn.pathshorten(v)
-  elseif scope.type == 'file' then
-    v = string.format('%s/%s', vim.fn.fnamemodify(v, ':h:t'), vim.fn.fnamemodify(v, ':t'))
+  if scope.type == 'directory' or scope.type == 'file' or scope.type == 'cwd' then
+    v = vim.fn.fnamemodify(v, ':~')
   end
   return v
 end
