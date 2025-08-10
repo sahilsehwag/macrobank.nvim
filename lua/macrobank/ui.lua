@@ -69,7 +69,7 @@ function UI.input_name(default_name, cb, scope)
 end
 
 function UI.input_scope(cb, ctx)
-  local scopes = { 'global', 'filetype', 'session', 'cwd', 'file', 'directory', 'project' }
+  local scopes = { 'global', 'filetype', 'cwd', 'file', 'directory', 'project' }
   vim.ui.select(scopes, { prompt = 'Scope' }, function(kind)
     if not kind then return cb(nil) end
     local base = ctx or S.current_context(function() return Store.get_session_id() end)

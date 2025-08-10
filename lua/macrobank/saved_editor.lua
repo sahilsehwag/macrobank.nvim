@@ -41,8 +41,10 @@ local function render_header()
 	local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
 	local hdr = {
 		"MacroBank — Saved Macro Bank",
-		"Ops: Update <C-u> | Select @@ | Load @<reg> | Play <CR> | Delete dd | History <C-h> | Keymap M | Search / | Repeat . | Export X | Switch <Tab> | Close q",
-		"Scope: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD | <C-j> Project",
+		"Save <C-s> • Select @@ • Load @<reg> • Play <CR> • Delete dd",
+		"History <C-h> • Search / • Repeat . • Switch <Tab> • Close q",
+		"Scope: Global <C-g> • Filetype <C-t> • File <C-f> • Directory <C-d> • CWD <C-c> • Project <C-p>",
+		"Export: Keymap M • Lua X",
 		U.hr("", width, "─"),
 	}
 	state.header_lines = #hdr
@@ -238,8 +240,8 @@ local function ensure()
 		vim.keymap.set(mode, lhs, rhs, { buffer = state.buf, silent = true, nowait = true })
 	end
 
-	-- Update current macro
-	map("n", "<C-u>", function()
+	-- Save current macro
+	map("n", "<C-s>", function()
 		local row = vim.api.nvim_win_get_cursor(state.win)[1]
 		local idx = row - state.header_lines
 		local id = state.id_by_row[idx]
@@ -253,7 +255,7 @@ local function ensure()
 		end
 		Store.update(id, { name = p.name, keys = U.to_termcodes(p.text) }, state.ctx)
 		redraw()
-		U.info('Updated "' .. p.name .. '"')
+		U.info('Saved "' .. p.name .. '"')
 	end)
 
 	-- Delete current macro
@@ -552,16 +554,13 @@ end, { desc = 'Play macro: %s' })]],
 	map("n", "<C-f>", function()
 		change_scope("file")
 	end)
-	map("n", "<C-s>", function()
-		change_scope("session")
-	end)
 	map("n", "<C-d>", function()
 		change_scope("directory")
 	end)
-	map("n", "<C-p>", function()
+	map("n", "<C-c>", function()
 		change_scope("cwd")
 	end)
-	map("n", "<C-j>", function()
+	map("n", "<C-p>", function()
 		change_scope("project")
 	end)
 

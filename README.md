@@ -131,7 +131,7 @@ When in the Live Macro Editor (`:MacroBankLive`):
 
 | Key | Action | Description |
 |-----|--------|-------------|
-| `<C-u>` | Update | Update the register under cursor with edited content |
+| `<C-s>` | Save | Save the register under cursor with edited content |
 | `<CR>` | Play | Execute the macro under cursor |
 | `dd` | Delete | Clear the macro register |
 | `@` | Load | Load macro from picker (current context) into register under cursor |
@@ -149,10 +149,9 @@ When saving macros from the Live Editor:
 | `<C-g>` | Global | Save macro under cursor to global macro store |
 | `<C-t>` | Filetype | Save macro under cursor scoped to current filetype |
 | `<C-f>` | File | Save macro under cursor scoped to current file |
-| `<C-s>` | Session | Save macro under cursor scoped to current session |
 | `<C-d>` | Directory | Save macro under cursor scoped to current directory |
-| `<C-p>` | CWD | Save macro under cursor scoped to current working directory |
-| `<C-j>` | Project | Save macro under cursor to nearest project macrobank.json file |
+| `<C-c>` | CWD | Save macro under cursor scoped to current working directory |
+| `<C-p>` | Project | Save macro under cursor to nearest project macrobank.json file |
 
 ### Macro Bank Editor Keymaps
 
@@ -164,7 +163,7 @@ When in the Macro Bank (`:MacroBank`):
 | `@@` | Load | Load macro into default register |
 | `@<reg>` | Load | Load macro into specified register |
 | `dd` | Delete | Remove macro from bank |
-| `<C-u>` | Update | Update macro under cursor with edited content |
+| `<C-s>` | Save | Save macro under cursor with edited content |
 | `<C-h>` | History | View/rollback to previous versions |
 | `/` | Search | Fuzzy search for macros |
 | `M` | Keymap | Generate keymap code for the macro |
@@ -182,10 +181,9 @@ Change the scope of the macro under cursor:
 | `<C-g>` | Global | Change to global scope |
 | `<C-t>` | Filetype | Change to filetype scope |
 | `<C-f>` | File | Change to file scope |
-| `<C-s>` | Session | Change to session scope |
 | `<C-d>` | Directory | Change to directory scope |
-| `<C-p>` | CWD | Change to CWD scope |
-| `<C-j>` | Project | Change to project scope |
+| `<C-c>` | CWD | Change to CWD scope |
+| `<C-p>` | Project | Change to project scope |
 
 ## 📁 Storage
 
@@ -202,7 +200,6 @@ Macros can be scoped to different contexts:
 - **Global**: Available everywhere
 - **Filetype**: Only available for specific filetypes (e.g., `lua`, `python`)
 - **File**: Only available for specific files
-- **Session**: Only available in the current Neovim session
 - **Directory**: Available when in a specific directory tree
 - **CWD**: Available when the current working directory matches
 - **Project**: Available within the current project (saved to nearest macrobank.json file)
@@ -217,7 +214,7 @@ Macros can be scoped to different contexts:
 
 ### Project-Specific Macros
 1. Create `.macrobank.json` in your project root
-2. Record and save macros with `<C-j>` (project scope), `<C-f>` (file), or `<C-d>` (directory) scopes
+2. Record and save macros with `<C-p>` (project scope), `<C-f>` (file), or `<C-d>` (directory) scopes
 3. Macros will be automatically available when working in the project
 
 ### Quick Macro Execution
@@ -278,8 +275,21 @@ The plugin intelligently matches macros based on context:
 - **Directory scopes** match when you're editing files within that directory tree
 - **File scopes** only activate for the specific file
 - **Filetype scopes** activate based on the current buffer's filetype
-- **Session scopes** are unique to the current Neovim session
+- **CWD scopes** activate when the current working directory matches
 - **Project scopes** work anywhere within the project directory
+
+### Context-Aware Commands
+The commands behave differently based on whether you use the bang (`!`) modifier:
+
+**Without bang** - Shows only context-applicable macros:
+- `:MacroBankSelect macro_name` - Only searches macros that match your current context
+- `:MacroBankPlay macro_name` - Only searches macros that match your current context
+- Tab completion shows only applicable macro names
+
+**With bang** - Shows all macros regardless of context:
+- `:MacroBankSelect! macro_name` - Searches all macros
+- `:MacroBankPlay! macro_name` - Searches all macros  
+- Tab completion shows all macro names
 
 ## 🤝 Contributing
 

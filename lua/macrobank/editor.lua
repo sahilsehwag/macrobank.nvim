@@ -30,8 +30,8 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
-    'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Load All ` | Repeat . | Switch <Tab> | Quit q',
-    'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD | <C-j> Project',
+    'Save changes <C-s> • Play <CR> • Delete dd • Load @ • Load All ` • Repeat . • Switch <Tab> • Quit q',
+    'Save macro: Global <C-g> • Filetype <C-t> • File <C-f> • Directory <C-d> • CWD <C-c> • Project <C-p>',
     U.hr('', width, '─'),
   }
   state.header_lines = #hdr
@@ -39,7 +39,7 @@ local function render_header()
   local empty_lines = {}
   for i = 1, #hdr do empty_lines[i] = '' end
   vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, empty_lines)
-  
+
   vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
   for i, line in ipairs(hdr) do
     vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, i-1, 0, {
@@ -61,7 +61,7 @@ local function ensure()
   local row   = math.floor((vim.o.lines-height)/2-1)
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
-  
+
   vim.wo[state.win].signcolumn = 'yes'
 
   render_header()
@@ -76,23 +76,23 @@ local function ensure()
     -- Fall back to default register if last register is empty
     target_reg = (cfg and cfg.default_select_register) or 'q'
   end
-  
+
   for i, r in ipairs(state.regs) do
-    if r == target_reg then 
+    if r == target_reg then
       vim.api.nvim_win_set_cursor(state.win, { state.header_lines + i, 0 })
-      break 
+      break
     end
   end
 
   local map = function(mode, lhs, rhs) vim.keymap.set(mode, lhs, rhs, { buffer=state.buf, silent=true, nowait=true }) end
 
-  -- Update current register
-  map('n', '<C-u>', function()
+  -- Save current register
+  map('n', '<C-s>', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
     vim.fn.setreg(p.reg, U.to_termcodes(p.text), 'n')
     vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  %s', p.reg, U.readable(p.text)) })
-    U.info('Updated @'..p.reg)
+    U.info('Saved @'..p.reg)
   end)
 
   -- Play current register
@@ -161,10 +161,9 @@ local function ensure()
   map('n', '<C-g>', function() save_current('global') end)
   map('n', '<C-t>', function() save_current('filetype') end)
   map('n', '<C-f>', function() save_current('file') end)
-  map('n', '<C-s>', function() save_current('session') end)
   map('n', '<C-d>', function() save_current('directory') end)
-  map('n', '<C-p>', function() save_current('cwd') end)
-  map('n', '<C-j>', function() save_current('project') end)
+  map('n', '<C-c>', function() save_current('cwd') end)
+  map('n', '<C-p>', function() save_current('project') end)
 
   map('n', '<Tab>', function() E.close(); require('macrobank.saved_editor').open(state.ctx) end)
 

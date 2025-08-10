@@ -4,7 +4,6 @@ local S = {}
 local ICONS = {
   global    = '',
   filetype  = '',
-  session   = '',
   cwd       = '',
   file      = '󰈔',
   directory = '',
@@ -13,7 +12,7 @@ local ICONS = {
 
 local function icon(kind, nerd)
   if nerd then return ICONS[kind] or '' end
-  return ({ global='G', filetype='FT', session='S', cwd='CWD', file='F', directory='DIR', project='PROJ' })[kind] or ''
+  return ({ global='G', filetype='FT', cwd='CWD', file='F', directory='DIR', project='PROJ' })[kind] or ''
 end
 
 -- Just the icon (for picker labels)
@@ -26,7 +25,7 @@ function S.current_context(get_session_id)
   local dir = file ~= '' and vim.fn.fnamemodify(file, ':h') or vim.fn.getcwd()
   local ft = vim.bo.filetype or ''
   local cwd = vim.fn.getcwd()
-  return { file = file, dir = dir, filetype = ft, cwd = cwd, session = get_session_id() }
+  return { file = file, dir = dir, filetype = ft, cwd = cwd }
 end
 
 -- Return default scope value for a type given current context
@@ -34,7 +33,6 @@ function S.default_value_for(kind, ctx)
   if kind == 'filetype' then return ctx.filetype end
   if kind == 'cwd'      then return vim.fn.fnamemodify(ctx.cwd, ':~') end
   if kind == 'file'     then return vim.fn.fnamemodify(ctx.file, ':~') end
-  if kind == 'session'  then return ctx.session end
   if kind == 'directory'then return vim.fn.fnamemodify(ctx.dir, ':~') end
   if kind == 'project'  then return 'project' end
   return nil -- global
@@ -51,7 +49,6 @@ function S.matches(scope, ctx)
     local f = vim.fn.fnamemodify(v or '', ':p')
     return f ~= '' and ctx.file == f
   end
-  if t == 'session' then return ctx.session == v end
   if t == 'directory' then
     if not v or v == '' then return false end
     local dir = vim.fn.fnamemodify(v, ':p')
