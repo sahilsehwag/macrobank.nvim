@@ -138,6 +138,9 @@ function M.setup(user)
   if M.config.mappings and M.config.mappings.open_bank then
     vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.saved_editor').open, { desc = '[MacroBank] Edit saved macros' })
   end
+  
+  -- Define highlight groups
+  vim.api.nvim_set_hl(0, 'MacroBankGroupHeader', { link = 'Function', default = true })
 end
 
 return M

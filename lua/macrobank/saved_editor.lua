@@ -159,7 +159,7 @@ local function redraw()
 			vim.api.nvim_buf_set_extmark(state.buf, state.virt_ns, row - 1, 0, {
 				virt_lines = {
 					{{ U.hr("", width, " "), "Comment" }},
-					{{ U.hr(header, width, "-"), "Comment" }},
+					{{ U.hr(header, width, "-"), "MacroBankGroupHeader" }},
 				},
 				virt_lines_above = true,
 			})
