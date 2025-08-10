@@ -257,29 +257,6 @@ local function ensure()
 		U.info("Deleted macro")
 	end)
 
-	-- Select macro into default register
-	map("n", "@@", function()
-		local row = vim.api.nvim_win_get_cursor(state.win)[1]
-		local idx = row - state.header_lines
-		local id = state.id_by_row[idx]
-		if not id then
-			return
-		end
-		local macro = nil
-		for _, m in ipairs(Store.all(state.ctx)) do
-			if m.id == id then
-				macro = m
-				break
-			end
-		end
-		if not macro then
-			return
-		end
-		local reg = (cfg and cfg.default_select_register) or "q"
-		vim.fn.setreg(reg, macro.keys, "n")
-		U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
-	end)
-
 	-- Play macro
 	map("n", "<CR>", function()
 		local row = vim.api.nvim_win_get_cursor(state.win)[1]
@@ -326,6 +303,29 @@ local function ensure()
 		end)
 	end)
 
+	-- Select macro into default register
+	local load_macro_in_default_register = function ()
+		local row = vim.api.nvim_win_get_cursor(state.win)[1]
+		local idx = row - state.header_lines
+		local id = state.id_by_row[idx]
+		if not id then
+			return
+		end
+		local macro = nil
+		for _, m in ipairs(Store.all(state.ctx)) do
+			if m.id == id then
+				macro = m
+				break
+			end
+		end
+		if not macro then
+			return
+		end
+		local reg = (cfg and cfg.default_select_register) or "q"
+		vim.fn.setreg(reg, macro.keys, "n")
+		U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
+	end
+
 	-- Load macro into chosen register
 	map("n", "@", function()
 		local row = vim.api.nvim_win_get_cursor(state.win)[1]
@@ -344,10 +344,15 @@ local function ensure()
 		if not macro then
 			return
 		end
+
 		local reg = vim.fn.getcharstr()
-		if not reg or reg == "" or reg == "@" then
+		if not reg or reg == "" then
 			return
 		end
+		if reg == "@" then
+			return load_macro_in_default_register()
+		end
+
 		vim.fn.setreg(reg, macro.keys, "n")
 		U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
 	end)
