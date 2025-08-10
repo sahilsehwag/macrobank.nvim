@@ -59,7 +59,10 @@ function M.setup(user)
     -- Argument provided, select by name
     local name = opts.args
     local macro = nil
-    for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
+    local S = require('macrobank.scopes')
+    local ctx = S.current_context(function() return Store.get_session_id() end)
+    local search_macros = opts.bang and Store.all(ctx) or Store.partition_by_context(ctx)
+    for _, m in ipairs(search_macros) do if m.name == name then macro = m; break end end
     if not macro then return U.warn('Macro not found') end
     local reg = (M.config.default_select_register) or 'q'
     vim.fn.setreg(reg, macro.keys, 'n')
@@ -69,8 +72,12 @@ function M.setup(user)
     bang = true,
     complete = function(ArgLead, CmdLine, CursorPos)
       local Store = require('macrobank.store')
+      local S = require('macrobank.scopes')
+      local ctx = S.current_context(function() return Store.get_session_id() end)
+      local has_bang = CmdLine:match('^%S+!')
+      local macros = has_bang and Store.all(ctx) or Store.partition_by_context(ctx)
       local names = {}
-      for _, macro in ipairs(Store.all()) do
+      for _, macro in ipairs(macros) do
         if macro.name and macro.name:match('^' .. vim.pesc(ArgLead)) then
           table.insert(names, macro.name)
         end
@@ -105,10 +112,13 @@ function M.setup(user)
     -- Argument provided, play by name
     local name = opts.args
     local macro = nil
-    for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
+    local S = require('macrobank.scopes')
+    local ctx = S.current_context(function() return Store.get_session_id() end)
+    local search_macros = opts.bang and Store.all(ctx) or Store.partition_by_context(ctx)
+    for _, m in ipairs(search_macros) do if m.name == name then macro = m; break end end
     if not macro then return U.warn('Macro not found') end
     local reg = (M.config.default_play_register) or 'q'
-    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, m.keys, 'n')
+    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, macro.keys, 'n')
     if opts.range > 0 then
       vim.cmd(('%d,%dnormal! @%s'):format(opts.line1, opts.line2, reg))
     else
@@ -121,8 +131,12 @@ function M.setup(user)
     bang = true,
     complete = function(ArgLead, CmdLine, CursorPos)
       local Store = require('macrobank.store')
+      local S = require('macrobank.scopes')
+      local ctx = S.current_context(function() return Store.get_session_id() end)
+      local has_bang = CmdLine:match('^%S+!')
+      local macros = has_bang and Store.all(ctx) or Store.partition_by_context(ctx)
       local names = {}
-      for _, macro in ipairs(Store.all()) do
+      for _, macro in ipairs(macros) do
         if macro.name and macro.name:match('^' .. vim.pesc(ArgLead)) then
           table.insert(names, macro.name)
         end
