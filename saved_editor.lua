@@ -16,7 +16,7 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Saved Macro Bank',
-    'Ops: Update <C-u> | Select @@ | Play <CR> | Repeat . | Delete dd | Load @<reg> | History <C-h>',
+    'Ops: Update <C-u> | Select @@ | Load @<reg> | Play <CR> | Delete dd | History <C-h> | Keymap M | Search / | Repeat . | Export X | Close q',
     U.hr('', width, '─'),
   }
   state.header_lines = #hdr

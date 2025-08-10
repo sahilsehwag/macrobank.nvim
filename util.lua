@@ -49,7 +49,7 @@ function U.hr(text, width, ch)
   ch = ch or '-'
   width = width or vim.o.columns
   if text and text ~= '' then
-    local prefix = '-- ' .. text .. ' '
+    local prefix = '--- ' .. text .. ' '
     local fill = width - #prefix
     if fill < 0 then fill = 0 end
     return prefix .. string.rep(ch, fill)

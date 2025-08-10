@@ -30,7 +30,7 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
-    'Ops: Update <C-u> | Play <CR> | Repeat . | Delete dd | Load @',
+    'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Repeat . | Quit q',
     'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
     U.hr('', width, '─'),
   }
