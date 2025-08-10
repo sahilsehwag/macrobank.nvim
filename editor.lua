@@ -30,7 +30,7 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
-    'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Load All ` | Repeat . | Quit q',
+    'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Load All ` | Repeat . | Switch <Tab> | Quit q',
     'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
     U.hr('', width, '─'),
   }
@@ -61,6 +61,8 @@ local function ensure()
   local row   = math.floor((vim.o.lines-height)/2-1)
   local col   = math.floor((vim.o.columns-width)/2)
   state.win = vim.api.nvim_open_win(state.buf, true, { relative='editor', width=width, height=height, row=row, col=col, style='minimal', border='rounded' })
+  
+  vim.wo[state.win].signcolumn = 'yes'
 
   render_header()
   vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, lines_for_view())
