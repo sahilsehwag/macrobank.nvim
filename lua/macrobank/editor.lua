@@ -27,12 +27,12 @@ local function lines_for_view()
 end
 
 local function render_register_labels()
-  if not state.reg_ns then 
-    state.reg_ns = vim.api.nvim_create_namespace('macrobank_live_regs') 
+  if not state.reg_ns then
+    state.reg_ns = vim.api.nvim_create_namespace('macrobank_live_regs')
   end
-  
+
   vim.api.nvim_buf_clear_namespace(state.buf, state.reg_ns, 0, -1)
-  
+
   for i, reg in ipairs(state.regs) do
     local row = state.header_lines + i - 1
     vim.api.nvim_buf_set_extmark(state.buf, state.reg_ns, row, 0, {
@@ -47,10 +47,10 @@ local function get_current_register_info()
   local row = vim.api.nvim_win_get_cursor(state.win)[1]
   local idx = row - state.header_lines
   if idx < 1 or idx > #state.regs then return nil end
-  
+
   local reg = state.regs[idx]
   local line_content = vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1] or ''
-  
+
   return {
     reg = reg,
     text = line_content
@@ -62,7 +62,7 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
-    'Save changes <C-s> • Play <CR> • Delete D • Load @ • Load(All) ` • Repeat . • Switch <Tab> • Quit <Esc>',
+    'Save changes <C-s> • Play <CR> • Delete D • Load @ • Load(All) ` • Switch <Tab> • Quit <Esc>',
     'Save macro: Global <C-g> • Filetype <C-t> • File <C-f> • Directory <C-d> • CWD <C-c> • Project <C-p>',
     'Navigation: Press a-z to jump to that register',
     U.hr('', width, '─'),
@@ -153,18 +153,18 @@ local function ensure()
     local info = get_current_register_info()
     if not info then return end
     vim.fn.setreg(info.reg, '', 'n')
-    
+
     -- Store current cursor position
     local cursor_pos = vim.api.nvim_win_get_cursor(state.win)
     local row = cursor_pos[1]
-    
+
     -- Ensure buffer is modifiable
     local old_modifiable = vim.bo[state.buf].modifiable
     vim.bo[state.buf].modifiable = true
-    
+
     -- Clear the line content
     vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { '' })
-    
+
     -- Re-render virtual text after content change
     vim.schedule(function()
       render_register_labels()
@@ -173,10 +173,10 @@ local function ensure()
         vim.api.nvim_win_set_cursor(state.win, cursor_pos)
       end
     end)
-    
+
     -- Restore modifiable state
     vim.bo[state.buf].modifiable = old_modifiable
-    
+
     U.info('Cleared @'..info.reg)
   end)
 

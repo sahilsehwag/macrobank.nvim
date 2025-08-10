@@ -42,9 +42,8 @@ local function render_header()
 	local hdr = {
 		"MacroBank — Saved Macro Bank",
 		"Save <C-s> • Select @@ • Load @<reg> • Play <CR> • Delete D",
-		"History <C-h> • Search / • Repeat . • Switch <Tab> • Close <Esc>",
-		"Scope: Global <C-g> • Filetype <C-t> • File <C-f> • Directory <C-d> • CWD <C-c> • Project <C-p>",
-		"Export: Keymap M • Lua X",
+		"History <C-h> • Search g/ • Switch <Tab> • Close <Esc>",
+		"Change scope: Global <C-g> • Filetype <C-t> • File <C-f> • Directory <C-d> • CWD <C-c> • Project <C-p>",
 		U.hr("", width, "─"),
 	}
 	state.header_lines = #hdr

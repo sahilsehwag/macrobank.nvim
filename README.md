@@ -136,7 +136,6 @@ When in the Live Macro Editor (`:MacroBankLive`):
 | `D` | Delete | Clear the macro register |
 | `@` | Load | Load macro from picker (current context) into register under cursor |
 | `` ` `` | Load (All) | Load macro from picker (all scopes) into register under cursor |
-| `.` | Repeat | Repeat last executed macro |
 | `a-z` | Navigate | Jump directly to that register (e.g., `f` jumps to register f) |
 | `<Tab>` | Switch | Toggle between register and saved macro views |
 | `<Esc>` | Quit | Close the editor |
