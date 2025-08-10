@@ -101,6 +101,7 @@ local function lines_for_bank()
 		end
 		-- Add gap after group (but not after the last one)
 		if #macro_list > 0 and add_gap then
+			-- TODO:
 			--rows[#rows + 1] = ""
 			ids[#ids + 1] = nil
 			macros[#macros + 1] = nil
@@ -156,7 +157,10 @@ local function redraw()
 		local header = headers[i]
 		if header then
 			vim.api.nvim_buf_set_extmark(state.buf, state.virt_ns, row - 1, 0, {
-				virt_lines = { { { U.hr(header, width, "-"), "Comment" } } },
+				virt_lines = {
+					{{ U.hr("", width, " "), "Comment" }},
+					{{ U.hr(header, width, "-"), "Comment" }},
+				},
 				virt_lines_above = true,
 			})
 		end
