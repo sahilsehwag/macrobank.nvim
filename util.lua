@@ -57,4 +57,17 @@ function U.hr(text, width, ch)
   return string.rep(ch, width)
 end
 
+-- Format datetime to natural format
+function U.format_datetime(iso_datetime)
+  if not iso_datetime then return '?' end
+  -- Parse ISO datetime: 2024-01-15T14:30:45Z
+  local year, month, day, hour, min, sec = iso_datetime:match('(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)')
+  if not year then return iso_datetime end -- fallback to original
+  
+  local months = {'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'}
+  local month_name = months[tonumber(month)] or month
+  
+  return string.format('%s %d, %s at %s:%s', month_name, tonumber(day), year, hour, min)
+end
+
 return U
