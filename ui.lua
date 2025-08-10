@@ -21,7 +21,7 @@ function UI.picker_label(m)
   local scope = m.scope and m.scope.type or 'global'
   local ctx = context_for(m.scope)
   local scope_icon = S.icon_only(scope, cfg and cfg.nerd_icons)
-  if ctx ~= '' then return string.format('%s %s %s', scope_icon, m.name, ctx) end
+  if ctx ~= '' then return string.format('%s %s (%s)', scope_icon, m.name, ctx) end
   return string.format('%s %s', scope_icon, m.name)
 end
 
