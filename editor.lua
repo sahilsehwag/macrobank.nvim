@@ -68,9 +68,19 @@ local function ensure()
   vim.api.nvim_buf_set_lines(state.buf, state.header_lines, -1, false, lines_for_view())
   vim.bo[state.buf].modifiable = true
 
-  if state.last_run_reg then
-    for i, r in ipairs(state.regs) do
-      if r == state.last_run_reg then vim.api.nvim_win_set_cursor(state.win, { state.header_lines + i, 0 }); break end
+  -- Position cursor on appropriate register
+  local target_reg = nil
+  if state.last_run_reg and vim.fn.getreg(state.last_run_reg) ~= '' then
+    target_reg = state.last_run_reg
+  else
+    -- Fall back to default register if last register is empty
+    target_reg = (cfg and cfg.default_select_register) or 'q'
+  end
+  
+  for i, r in ipairs(state.regs) do
+    if r == target_reg then 
+      vim.api.nvim_win_set_cursor(state.win, { state.header_lines + i, 0 })
+      break 
     end
   end
 
