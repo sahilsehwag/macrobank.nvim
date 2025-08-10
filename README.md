@@ -4,7 +4,7 @@ A powerful Neovim plugin for managing, editing, and organizing macros with persi
 
 ## ✨ Features
 
-- 📝 **Live Macro Editor**: Edit macros in real-time with a dedicated interface
+- 📝 **Live Macro Editor**: Edit macros in real-time with quick navigation (a-z keys) and clean interface
 - 💾 **Persistent Storage**: Save macros globally or per-project with multiple scoping options
 - 🎯 **Smart Selection**: Interactive macro picker with fuzzy matching
 - 🔄 **Quick Playback**: Execute saved macros instantly with commands or keymaps
@@ -133,12 +133,13 @@ When in the Live Macro Editor (`:MacroBankLive`):
 |-----|--------|-------------|
 | `<C-s>` | Save | Save the register under cursor with edited content |
 | `<CR>` | Play | Execute the macro under cursor |
-| `dd` | Delete | Clear the macro register |
+| `D` | Delete | Clear the macro register |
 | `@` | Load | Load macro from picker (current context) into register under cursor |
-| `` ` `` | Load All | Load macro from picker (all scopes) into register under cursor |
+| `` ` `` | Load (All) | Load macro from picker (all scopes) into register under cursor |
 | `.` | Repeat | Repeat last executed macro |
+| `a-z` | Navigate | Jump directly to that register (e.g., `f` jumps to register f) |
 | `<Tab>` | Switch | Toggle between register and saved macro views |
-| `q` | Quit | Close the editor |
+| `<Esc>` | Quit | Close the editor |
 
 ### Save Scopes (Live Editor)
 
@@ -162,7 +163,7 @@ When in the Macro Bank (`:MacroBank`):
 | `<CR>` | Execute | Run the selected macro |
 | `@@` | Load | Load macro into default register |
 | `@<reg>` | Load | Load macro into specified register |
-| `dd` | Delete | Remove macro from bank |
+| `D` | Delete | Remove macro from bank |
 | `<C-s>` | Save | Save macro under cursor with edited content |
 | `<C-h>` | History | View/rollback to previous versions |
 | `/` | Search | Fuzzy search for macros |
@@ -170,7 +171,7 @@ When in the Macro Bank (`:MacroBank`):
 | `X` | Export | Export macro as Lua snippet |
 | `.` | Repeat | Repeat last executed macro |
 | `<Tab>` | Switch | Toggle to Live Macro Editor |
-| `q` | Quit | Close the editor |
+| `<Esc>` | Quit | Close the editor |
 
 ### Scope Change (Bank Editor)
 
@@ -209,8 +210,10 @@ Macros can be scoped to different contexts:
 ### Basic Macro Workflow
 1. Record a macro: `qa` (record into register 'a')
 2. Open Live Editor: `<leader>mm`
-3. Save the macro: `<C-g>` (save globally)
-4. Later, load and use: `:MacroBankSelect my_macro`
+3. Navigate quickly: Press `a` to jump directly to register 'a'
+4. Edit if needed, then save: `<C-s>` to save changes to register (or `D` to clear)
+5. Save to bank: `<C-g>` (save globally) and name it
+6. Later, load and use: `:MacroBankSelect my_macro`
 
 ### Project-Specific Macros
 1. Create `.macrobank.json` in your project root

@@ -41,8 +41,8 @@ local function render_header()
 	local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
 	local hdr = {
 		"MacroBank — Saved Macro Bank",
-		"Save <C-s> • Select @@ • Load @<reg> • Play <CR> • Delete dd",
-		"History <C-h> • Search / • Repeat . • Switch <Tab> • Close q",
+		"Save <C-s> • Select @@ • Load @<reg> • Play <CR> • Delete D",
+		"History <C-h> • Search / • Repeat . • Switch <Tab> • Close <Esc>",
 		"Scope: Global <C-g> • Filetype <C-t> • File <C-f> • Directory <C-d> • CWD <C-c> • Project <C-p>",
 		"Export: Keymap M • Lua X",
 		U.hr("", width, "─"),
@@ -259,7 +259,7 @@ local function ensure()
 	end)
 
 	-- Delete current macro
-	map("n", "dd", function()
+	map("n", "D", function()
 		local row = vim.api.nvim_win_get_cursor(state.win)[1]
 		local idx = row - state.header_lines
 		local id = state.id_by_row[idx]
@@ -565,7 +565,7 @@ end, { desc = 'Play macro: %s' })]],
 	end)
 
 	-- Close
-	map("n", "q", B.close)
+	map("n", "<Esc>", B.close)
 end
 
 function B.open(ctx)
