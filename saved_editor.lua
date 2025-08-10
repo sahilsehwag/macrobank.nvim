@@ -262,6 +262,26 @@ end, { desc = 'Play macro: %s' })]], mode, lhs, (cfg.default_play_register or 'q
 
   map('n', '<Tab>', function() B.close(); require('macrobank.editor').open(state.ctx) end)
 
+  -- Change scope mappings (similar to live editor)
+  local function change_scope(scope_type)
+    local row = vim.api.nvim_win_get_cursor(state.win)[1]
+    local idx = row - state.header_lines; local id = state.id_by_row[idx]; if not id then return end
+    local macro = nil; for _, m in ipairs(Store.all(state.ctx)) do if m.id == id then macro = m; break end end
+    if not macro then return end
+    local ctx = state.ctx or S.current_context(function() return Store.get_session_id() end)
+    local new_scope = { type = scope_type, value = S.default_value_for(scope_type, ctx) }
+    Store.update(id, { scope = new_scope }, state.ctx)
+    redraw()
+    U.info(('Changed "%s" scope to %s'):format(macro.name, scope_type))
+  end
+
+  map('n', '<C-g>', function() change_scope('global') end)
+  map('n', '<C-t>', function() change_scope('filetype') end)
+  map('n', '<C-f>', function() change_scope('file') end)
+  map('n', '<C-s>', function() change_scope('session') end)
+  map('n', '<C-d>', function() change_scope('directory') end)
+  map('n', '<C-p>', function() change_scope('cwd') end)
+
   -- Close
   map('n', 'q', B.close)
 end
