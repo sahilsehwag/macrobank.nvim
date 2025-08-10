@@ -16,7 +16,8 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Saved Macro Bank',
-    'Ops: Update <C-u> | Select @@ | Load @<reg> | Play <CR> | Delete dd | History <C-h> | Keymap M | Search / | Repeat . | Export X | Close q',
+    'Ops: Update <C-u> | Select @@ | Load @<reg> | Play <CR> | Delete dd | History <C-h> | Keymap M | Search / | Repeat . | Export X | Switch <Tab> | Close q',
+    'Scope: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
     U.hr('', width, '─'),
   }
   state.header_lines = #hdr
@@ -24,7 +25,7 @@ local function render_header()
   local empty_lines = {}
   for i = 1, #hdr do empty_lines[i] = '' end
   vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, empty_lines)
-  
+
   vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
   for i, line in ipairs(hdr) do
     vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, i-1, 0, {
