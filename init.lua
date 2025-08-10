@@ -38,9 +38,66 @@ function M.setup(user)
   -- Commands
   vim.api.nvim_create_user_command('MacroBankLive', function() require('macrobank.editor').open() end, {})
   vim.api.nvim_create_user_command('MacroBank',     function() require('macrobank.saved_editor').open() end, {})
+  
+  vim.api.nvim_create_user_command('MacroBankSelect', function(opts)
+    local Store = require('macrobank.store')
+    local U = require('macrobank.util')
+    local UI = require('macrobank.ui')
+    
+    if opts.args == '' then
+      -- No argument provided, open picker
+      UI.select_macro(function(m)
+        if not m then return end
+        local reg = (M.config.default_select_register) or 'q'
+        vim.fn.setreg(reg, m.keys, 'n')
+        U.info(('Loaded "%s" → @%s'):format(m.name, reg))
+      end, nil, false)
+      return
+    end
+    
+    -- Argument provided, select by name
+    local name = opts.args
+    local macro = nil
+    for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
+    if not macro then return U.warn('Macro not found') end
+    local reg = (M.config.default_select_register) or 'q'
+    vim.fn.setreg(reg, macro.keys, 'n')
+    U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
+  end, {
+    nargs = '?',
+    complete = function(ArgLead, CmdLine, CursorPos)
+      local Store = require('macrobank.store')
+      local names = {}
+      for _, macro in ipairs(Store.all()) do
+        if macro.name and macro.name:match('^' .. vim.pesc(ArgLead)) then
+          table.insert(names, macro.name)
+        end
+      end
+      return names
+    end
+  })
   vim.api.nvim_create_user_command('MacroBankPlay', function(opts)
     local Store = require('macrobank.store')
     local U = require('macrobank.util')
+    local UI = require('macrobank.ui')
+    
+    if opts.args == '' then
+      -- No argument provided, open picker
+      UI.select_macro(function(m)
+        if not m then return end
+        local reg = (M.config.default_play_register) or 'q'
+        local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, m.keys, 'n')
+        if opts.range > 0 then
+          vim.cmd(('%d,%dnormal! @%s'):format(opts.line1, opts.line2, reg))
+        else
+          vim.cmd(('normal! @%s'):format(reg))
+        end
+        vim.fn.setreg(reg, prev, 'n')
+      end, nil, false)
+      return
+    end
+    
+    -- Argument provided, play by name
     local name = opts.args
     local macro = nil
     for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
@@ -54,7 +111,7 @@ function M.setup(user)
     end
     vim.fn.setreg(reg, prev, 'n')
   end, {
-    nargs = 1,
+    nargs = '?',
     range = true,
     complete = function(ArgLead, CmdLine, CursorPos)
       local Store = require('macrobank.store')

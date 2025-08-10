@@ -30,15 +30,22 @@ local function render_header()
   local width = state.win and vim.api.nvim_win_get_width(state.win) or vim.o.columns
   local hdr = {
     'MacroBank — Live Macro Editor',
-    'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Repeat . | Quit q',
+    'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Load All ` | Repeat . | Quit q',
     'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
     U.hr('', width, '─'),
   }
   state.header_lines = #hdr
-  vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, hdr)
+  -- Create empty header lines (virtual text only)
+  local empty_lines = {}
+  for i = 1, #hdr do empty_lines[i] = '' end
+  vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, empty_lines)
+  
   vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
-  for i, _ in ipairs(hdr) do
-    vim.api.nvim_buf_add_highlight(state.buf, state.header_ns, (i==1) and 'Title' or 'Comment', i-1, 0, -1)
+  for i, line in ipairs(hdr) do
+    vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, i-1, 0, {
+      virt_text = { { line, (i==1) and 'Title' or 'Comment' } },
+      virt_text_pos = 'overlay',
+    })
   end
 end
 
@@ -61,7 +68,7 @@ local function ensure()
 
   if state.last_run_reg then
     for i, r in ipairs(state.regs) do
-      if r == state.last_run_reg then vim.api.nvim_win_set_cursor(state.win, { i, 0 }); break end
+      if r == state.last_run_reg then vim.api.nvim_win_set_cursor(state.win, { state.header_lines + i, 0 }); break end
     end
   end
 
@@ -101,7 +108,7 @@ local function ensure()
     U.info('Cleared @'..p.reg)
   end)
 
-  -- Load macro from bank into current register
+  -- Load macro from bank into current register (available only)
   map('n', '@', function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
@@ -110,7 +117,19 @@ local function ensure()
       vim.fn.setreg(p.reg, m.keys, 'n')
       vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  %s', p.reg, U.readable(m.keys)) })
       U.info(('Loaded "%s" → @%s'):format(m.name, p.reg))
-    end, state.ctx)
+    end, state.ctx, false)
+  end)
+
+  -- Load macro from bank into current register (all macros)
+  map('n', '`', function()
+    local row = vim.api.nvim_win_get_cursor(state.win)[1]
+    local p = U.parse_reg_line(vim.api.nvim_buf_get_lines(state.buf, row-1, row, false)[1]); if not p then return end
+    require('macrobank.ui').select_macro(function(m)
+      if not m then return end
+      vim.fn.setreg(p.reg, m.keys, 'n')
+      vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { string.format('%s  %s', p.reg, U.readable(m.keys)) })
+      U.info(('Loaded "%s" → @%s'):format(m.name, p.reg))
+    end, state.ctx, true)
   end)
 
   local function save_current(scope_type)
@@ -124,7 +143,7 @@ local function ensure()
       local entry = { name=name, keys=U.to_termcodes(p.text), scope=scope }
       if existing then Store.update(existing.id, entry, state.ctx) else Store.add_many({ entry }, state.ctx) end
       U.info(('Saved %s macro %s for %s'):format(scope_type, name, scope.value or ''))
-    end)
+    end, scope)
   end
 
   map('n', '<C-g>', function() save_current('global') end)

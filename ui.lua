@@ -20,64 +20,50 @@ end
 function UI.picker_label(m)
   local scope = m.scope and m.scope.type or 'global'
   local ctx = context_for(m.scope)
-  if ctx ~= '' then return string.format('[%s] %s %s', scope, m.name, ctx) end
-  return string.format('[%s] %s', scope, m.name)
+  local scope_icon = S.icon_only(scope, cfg and cfg.nerd_icons)
+  if ctx ~= '' then return string.format('%s %s %s', scope_icon, m.name, ctx) end
+  return string.format('%s %s', scope_icon, m.name)
 end
 
--- Context-aware select; returns chosen macro
-function UI.select_macro(cb, ctx)
+-- Context-aware select; returns chosen macro (default: available only)
+function UI.select_macro(cb, ctx, show_all)
   local all = Store.all(ctx)
   local cur = ctx or S.current_context(function() return Store.get_session_id() end)
-  local order = { global=1, filetype=2, cwd=3, session=4, directory=5, file=6 }
-  local active, groups = {}, {}
-  for _, m in ipairs(all) do
-    if S.matches(m.scope, cur) then
-      table.insert(active, m)
-    else
-      local s = m.scope or { type = 'global' }
-      local key = s.type .. '|' .. (s.value or '')
-      groups[key] = groups[key] or { scope = s, macros = {} }
-      table.insert(groups[key].macros, m)
+  local macros_to_show = {}
+
+  if show_all then
+    -- Show all macros sorted by name
+    macros_to_show = all
+  else
+    -- Show only available macros (matching current context)
+    for _, m in ipairs(all) do
+      if S.matches(m.scope, cur) then
+        table.insert(macros_to_show, m)
+      end
     end
   end
 
-  table.sort(active, function(a,b) return a.name < b.name end)
-  local ordered = {}
-  for _, g in pairs(groups) do table.insert(ordered, g) end
-  table.sort(ordered, function(a,b)
-    local oa = order[a.scope.type] or 99
-    local ob = order[b.scope.type] or 99
-    if oa ~= ob then return oa < ob end
-    local va = a.scope.value or ''
-    local vb = b.scope.value or ''
-    return va < vb
-  end)
-
-  local final = {}
-  if #active > 0 then final[#final+1] = { label = 'Active macros', macros = active } end
-  for _, g in ipairs(ordered) do
-    table.sort(g.macros, function(a,b) return a.name < b.name end)
-    g.label = S.label(g.scope, cfg and cfg.nerd_icons)
-    final[#final+1] = g
-  end
+  table.sort(macros_to_show, function(a,b) return a.name < b.name end)
 
   local items, map = {}, {}
-  for _, g in ipairs(final) do
-    table.insert(items, U.hr(g.label, 60, '-')); table.insert(map, { __sep = true })
-    for _, m in ipairs(g.macros) do table.insert(items, UI.picker_label(m)); table.insert(map, m) end
+  for _, m in ipairs(macros_to_show) do
+    table.insert(items, UI.picker_label(m))
+    table.insert(map, m)
   end
 
-  vim.ui.select(items, { prompt = 'Select macro' }, function(choice)
+  vim.ui.select(items, { prompt = show_all and 'Select macro (all)' or 'Select macro' }, function(choice)
     if not choice then return cb(nil) end
     local idx = nil
     for i, lbl in ipairs(items) do if lbl == choice then idx = i; break end end
     local m = idx and map[idx] or nil
-    if m and not m.__sep then cb(m) else cb(nil) end
+    if m then cb(m) else cb(nil) end
   end)
 end
 
-function UI.input_name(default_name, cb)
-  vim.ui.input({ prompt = 'Name for macro:', default = default_name or '' }, function(val)
+function UI.input_name(default_name, cb, scope)
+  local scope_icon = scope and S.icon_only(scope.type, cfg and cfg.nerd_icons) or ''
+  local prompt = scope_icon ~= '' and ('Enter name for %s macro: '):format(scope_icon) or 'Name for macro: '
+  vim.ui.input({ prompt = prompt, default = default_name or '' }, function(val)
     cb(val and vim.trim(val) or '')
   end)
 end

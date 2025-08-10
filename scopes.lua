@@ -15,6 +15,11 @@ local function icon(kind, nerd)
   return ({ global='G', filetype='FT', session='S', cwd='CWD', file='F', directory='DIR' })[kind] or ''
 end
 
+-- Just the icon (for picker labels)
+function S.icon_only(kind, nerd)
+  return icon(kind, nerd)
+end
+
 function S.current_context(get_session_id)
   local file = vim.fn.expand('%:p')
   local dir = file ~= '' and vim.fn.fnamemodify(file, ':h') or vim.fn.getcwd()

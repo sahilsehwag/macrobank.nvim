@@ -20,10 +20,17 @@ local function render_header()
     U.hr('', width, '─'),
   }
   state.header_lines = #hdr
-  vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, hdr)
+  -- Create empty header lines (virtual text only)
+  local empty_lines = {}
+  for i = 1, #hdr do empty_lines[i] = '' end
+  vim.api.nvim_buf_set_lines(state.buf, 0, state.header_lines, false, empty_lines)
+  
   vim.api.nvim_buf_clear_namespace(state.buf, state.header_ns, 0, -1)
-  for i, _ in ipairs(hdr) do
-    vim.api.nvim_buf_add_highlight(state.buf, state.header_ns, (i==1) and 'Title' or 'Comment', i-1, 0, -1)
+  for i, line in ipairs(hdr) do
+    vim.api.nvim_buf_set_extmark(state.buf, state.header_ns, i-1, 0, {
+      virt_text = { { line, (i==1) and 'Title' or 'Comment' } },
+      virt_text_pos = 'overlay',
+    })
   end
 end
 
