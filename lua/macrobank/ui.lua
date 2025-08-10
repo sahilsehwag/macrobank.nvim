@@ -90,7 +90,7 @@ function UI.resolve_conflict(name, scope, cb)
   end)
 end
 
--- Simple fuzzy search by name+keys
+-- Direct picker search by name+keys
 function UI.search_macros(cb, ctx)
   local all = Store.all(ctx)
   local labels, map = {}, {}
@@ -98,14 +98,10 @@ function UI.search_macros(cb, ctx)
     local label = UI.picker_label(m)
     table.insert(labels, label); table.insert(map, m)
   end
-  vim.ui.input({ prompt = 'Search (fuzzy):' }, function(q)
-    if not q then return cb(nil) end
-    local filtered = U.matchfuzzy(labels, q)
-    vim.ui.select(filtered, { prompt = 'Results' }, function(choice)
-      if not choice then return cb(nil) end
-      for i, l in ipairs(labels) do if l == choice then return cb(map[i]) end end
-      cb(nil)
-    end)
+  vim.ui.select(labels, { prompt = 'Search macros' }, function(choice)
+    if not choice then return cb(nil) end
+    for i, l in ipairs(labels) do if l == choice then return cb(map[i]) end end
+    cb(nil)
   end)
 end
 
