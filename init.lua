@@ -46,12 +46,13 @@ function M.setup(user)
     
     if opts.args == '' then
       -- No argument provided, open picker
+      local show_all = opts.bang
       UI.select_macro(function(m)
         if not m then return end
         local reg = (M.config.default_select_register) or 'q'
         vim.fn.setreg(reg, m.keys, 'n')
         U.info(('Loaded "%s" → @%s'):format(m.name, reg))
-      end, nil, false)
+      end, nil, show_all)
       return
     end
     
@@ -65,6 +66,7 @@ function M.setup(user)
     U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
   end, {
     nargs = '?',
+    bang = true,
     complete = function(ArgLead, CmdLine, CursorPos)
       local Store = require('macrobank.store')
       local names = {}
@@ -76,6 +78,8 @@ function M.setup(user)
       return names
     end
   })
+  
+  
   vim.api.nvim_create_user_command('MacroBankPlay', function(opts)
     local Store = require('macrobank.store')
     local U = require('macrobank.util')
@@ -83,6 +87,7 @@ function M.setup(user)
     
     if opts.args == '' then
       -- No argument provided, open picker
+      local show_all = opts.bang
       UI.select_macro(function(m)
         if not m then return end
         local reg = (M.config.default_play_register) or 'q'
@@ -93,7 +98,7 @@ function M.setup(user)
           vim.cmd(('normal! @%s'):format(reg))
         end
         vim.fn.setreg(reg, prev, 'n')
-      end, nil, false)
+      end, nil, show_all)
       return
     end
     
@@ -103,7 +108,7 @@ function M.setup(user)
     for _, m in ipairs(Store.all()) do if m.name == name then macro = m; break end end
     if not macro then return U.warn('Macro not found') end
     local reg = (M.config.default_play_register) or 'q'
-    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, macro.keys, 'n')
+    local prev = vim.fn.getreg(reg); vim.fn.setreg(reg, m.keys, 'n')
     if opts.range > 0 then
       vim.cmd(('%d,%dnormal! @%s'):format(opts.line1, opts.line2, reg))
     else
@@ -113,6 +118,7 @@ function M.setup(user)
   end, {
     nargs = '?',
     range = true,
+    bang = true,
     complete = function(ArgLead, CmdLine, CursorPos)
       local Store = require('macrobank.store')
       local names = {}
