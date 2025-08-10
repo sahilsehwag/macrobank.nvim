@@ -8,11 +8,12 @@ local ICONS = {
   cwd       = '',
   file      = '󰈔',
   directory = '',
+  project   = '',
 }
 
 local function icon(kind, nerd)
   if nerd then return ICONS[kind] or '' end
-  return ({ global='G', filetype='FT', session='S', cwd='CWD', file='F', directory='DIR' })[kind] or ''
+  return ({ global='G', filetype='FT', session='S', cwd='CWD', file='F', directory='DIR', project='PROJ' })[kind] or ''
 end
 
 -- Just the icon (for picker labels)
@@ -35,6 +36,7 @@ function S.default_value_for(kind, ctx)
   if kind == 'file'     then return vim.fn.fnamemodify(ctx.file, ':~') end
   if kind == 'session'  then return ctx.session end
   if kind == 'directory'then return vim.fn.fnamemodify(ctx.dir, ':~') end
+  if kind == 'project'  then return 'project' end
   return nil -- global
 end
 
@@ -57,6 +59,7 @@ function S.matches(scope, ctx)
     if dir == '' or file == '' then return false end
     return file:sub(1, #dir) == dir
   end
+  if t == 'project' then return true end -- project scope matches all contexts within project
   return false
 end
 

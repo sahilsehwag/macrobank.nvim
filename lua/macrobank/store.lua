@@ -112,6 +112,9 @@ local function choose_target_path(scope, ctx)
   if scope and (scope.type == 'file' or scope.type == 'directory' or scope.type == 'cwd' or scope.type == 'filetype') then
     return default_proj_target or global_path()
   end
+  if scope and scope.type == 'project' then
+    return default_proj_target or (vim.fn.getcwd() .. '/.macrobank.json')
+  end
   return global_path()
 end
 

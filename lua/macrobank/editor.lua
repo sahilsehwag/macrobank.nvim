@@ -31,7 +31,7 @@ local function render_header()
   local hdr = {
     'MacroBank — Live Macro Editor',
     'Ops: Update <C-u> | Play <CR> | Delete dd | Load @ | Load All ` | Repeat . | Switch <Tab> | Quit q',
-    'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD',
+    'Save: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD | <C-j> Project',
     U.hr('', width, '─'),
   }
   state.header_lines = #hdr
@@ -164,6 +164,7 @@ local function ensure()
   map('n', '<C-s>', function() save_current('session') end)
   map('n', '<C-d>', function() save_current('directory') end)
   map('n', '<C-p>', function() save_current('cwd') end)
+  map('n', '<C-j>', function() save_current('project') end)
 
   map('n', '<Tab>', function() E.close(); require('macrobank.saved_editor').open(state.ctx) end)
 

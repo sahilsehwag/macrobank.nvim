@@ -42,7 +42,7 @@ local function render_header()
 	local hdr = {
 		"MacroBank — Saved Macro Bank",
 		"Ops: Update <C-u> | Select @@ | Load @<reg> | Play <CR> | Delete dd | History <C-h> | Keymap M | Search / | Repeat . | Export X | Switch <Tab> | Close q",
-		"Scope: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD",
+		"Scope: <C-g> Global | <C-t> Filetype | <C-f> File | <C-s> Session | <C-d> Directory | <C-p> CWD | <C-j> Project",
 		U.hr("", width, "─"),
 	}
 	state.header_lines = #hdr
@@ -221,6 +221,18 @@ local function ensure()
 
 	redraw()
 	vim.bo[state.buf].modifiable = true
+	
+	-- Position cursor on first available macro
+	local first_macro_row = state.header_lines + 1
+	for i = 1, #state.id_by_row do
+		if state.id_by_row[i] then
+			first_macro_row = state.header_lines + i
+			break
+		end
+	end
+	if first_macro_row <= state.header_lines + #state.id_by_row then
+		vim.api.nvim_win_set_cursor(state.win, { first_macro_row, 0 })
+	end
 
 	local map = function(mode, lhs, rhs)
 		vim.keymap.set(mode, lhs, rhs, { buffer = state.buf, silent = true, nowait = true })
@@ -548,6 +560,9 @@ end, { desc = 'Play macro: %s' })]],
 	end)
 	map("n", "<C-p>", function()
 		change_scope("cwd")
+	end)
+	map("n", "<C-j>", function()
+		change_scope("project")
 	end)
 
 	-- Close
