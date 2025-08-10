@@ -74,6 +74,10 @@ require("macrobank").setup({
     open_live   = '<leader>mm',   -- open Live Macro Editor (registers)
     open_bank   = '<leader>mb',   -- open Macro Bank (saved macros)
   },
+
+  -- Editor buffer mappings override (optional)
+  live_editor_mappings = {},      -- override live editor buffer mappings: {action_name = 'keymap' | false}
+  bank_editor_mappings = {},      -- override bank editor buffer mappings: {action_name = 'keymap' | false}
 })
 ```
 
@@ -102,6 +106,18 @@ require("macrobank").setup({
   
   -- Disable nerd font icons
   nerd_icons = false,
+  
+  -- Override editor buffer mappings (optional)
+  live_editor_mappings = {
+    save = '<leader>s',       -- change save key from <C-s> to <leader>s
+    delete = false,           -- disable delete key entirely
+    play = '<Space>',         -- change play key from <CR> to <Space>
+  },
+  bank_editor_mappings = {
+    search = '/',             -- change search key from g/ back to /
+    history = false,          -- disable history feature
+    load = '<leader>l',       -- change load key from @ to <leader>l
+  },
 })
 ```
 
@@ -265,6 +281,54 @@ The plugin maintains a history of macro changes, allowing you to:
 ### Search
 Use `g/` in the Macro Bank to open a picker for searching macros by name or content.
 
+### Custom Buffer Mappings
+Override default editor keymaps in your configuration:
+
+```lua
+require("macrobank").setup({
+  live_editor_mappings = {
+    save = '<leader>s',       -- change save key from <C-s> to <leader>s  
+    delete = false,           -- disable delete key entirely
+    play = '<Space>',         -- change play key from <CR> to <Space>
+    load = '<leader>@',       -- change load key from @ to <leader>@
+  },
+  bank_editor_mappings = {
+    search = '/',             -- change search key from g/ back to /
+    history = false,          -- disable history feature
+    load = '<leader>l',       -- change load key from @ to <leader>l
+    switch = '<C-Tab>',       -- change switch key from <Tab> to <C-Tab>
+  },
+})
+```
+
+**Mapping Options:**
+- Set a new key string to override the default
+- Set `false` to disable a mapping entirely
+- Leave unspecified to keep default behavior
+
+**Live Editor Action Names:**
+- `save` - Save register content (`<C-s>`)
+- `play` - Play macro (`<CR>`)
+- `delete` - Clear register (`D`)
+- `repeat` - Repeat last macro (`.`)
+- `load` - Load macro from bank (available only) (`@`)
+- `load_all` - Load macro from bank (all scopes) (`` ` ``)
+- `save_global`, `save_filetype`, `save_file`, `save_directory`, `save_cwd`, `save_project` - Save with specific scope (`<C-g>`, `<C-t>`, `<C-f>`, `<C-d>`, `<C-c>`, `<C-p>`)
+- `switch` - Switch to bank editor (`<Tab>`)
+- `close` - Close editor (`<Esc>`)
+- `jump_a` through `jump_z` - Jump to specific register (`a`-`z`)
+
+**Bank Editor Action Names:**
+- `save` - Save macro content (`<C-s>`)
+- `delete` - Delete macro (`D`)
+- `play` - Execute macro (`<CR>`)
+- `load` - Load into register (`@`)
+- `history` - View/rollback history (`<C-h>`)
+- `search` - Search macros (`g/`)
+- `switch` - Switch to live editor (`<Tab>`)
+- `change_scope_global`, `change_scope_filetype`, `change_scope_file`, `change_scope_directory`, `change_scope_cwd`, `change_scope_project` - Change macro scope (`<C-g>`, `<C-t>`, `<C-f>`, `<C-d>`, `<C-c>`, `<C-p>`)
+- `close` - Close editor (`<Esc>`)
+
 ### Advanced Scope Matching
 The plugin intelligently matches macros based on context:
 - **Directory scopes** match when you're editing files within that directory tree
@@ -285,6 +349,143 @@ The commands behave differently based on whether you use the bang (`!`) modifier
 - `:MacroBankSelect! macro_name` - Searches all macros
 - `:MacroBankPlay! macro_name` - Searches all macros  
 - Tab completion shows all macro names
+
+## 📚 Lua API
+
+The plugin exposes several Lua functions for programmatic access:
+
+### Core Functions
+
+```lua
+-- Setup plugin with configuration
+require("macrobank").setup({...})
+
+-- Open Live Macro Editor
+require("macrobank.editor").open(ctx)
+
+-- Open Macro Bank Editor  
+require("macrobank.bank_editor").open(ctx)
+```
+
+### UI Functions
+
+```lua
+local UI = require("macrobank.ui")
+
+-- Show macro selection picker
+UI.select_macro(function(macro)
+  if macro then
+    print("Selected:", macro.name)
+  end
+end, ctx, show_all)
+
+-- Show search picker
+UI.search_macros(function(macro)
+  if macro then
+    print("Found:", macro.name)
+  end
+end, ctx)
+
+-- Input macro name with scope context
+UI.input_name("default_name", function(name)
+  print("Entered name:", name)
+end, scope)
+
+-- Select scope type
+UI.input_scope(function(scope)
+  print("Selected scope:", scope.type)
+end, ctx)
+```
+
+### Store Functions
+
+```lua
+local Store = require("macrobank.store")
+
+-- Get all macros for context
+local macros = Store.all(ctx)
+
+-- Add new macros
+Store.add_many({{name="test", keys="itest", scope={type="global"}}}, ctx)
+
+-- Update existing macro
+Store.update(macro_id, {name="new_name", keys="inew"}, ctx)
+
+-- Delete macro
+Store.delete(macro_id, ctx)
+
+-- Find macro by name and scope
+local macro = Store.find_by_name_scope("test", {type="global"}, ctx)
+
+-- Get macro history
+local history = Store.history(macro_id, ctx)
+
+-- Get context-aware macro partitions
+local active, inactive = Store.partition_by_context(ctx)
+```
+
+### Scope Functions
+
+```lua
+local S = require("macrobank.scopes")
+
+-- Get current context
+local ctx = S.current_context(function() return Store.get_session_id() end)
+
+-- Check if macro scope matches context
+local matches = S.matches(macro.scope, ctx)
+
+-- Get default value for scope type
+local value = S.default_value_for("filetype", ctx)
+
+-- Get scope icon
+local icon = S.icon_only("global", true) -- true = nerd icons
+
+-- Get human readable scope label
+local label = S.label(scope, true)
+```
+
+### Utility Functions
+
+```lua
+local U = require("macrobank.util")
+
+-- Convert termcodes
+local keys = U.to_termcodes("\\<Esc>iHello")
+
+-- Make keys readable for display  
+local display = U.readable("\\<Esc>iHello") -- "⎋iHello"
+
+-- Parse bank editor line
+local parsed = U.parse_bank_line("macro_name  ⎋itest")
+
+-- Create horizontal rule
+local hr = U.hr("Title", 80, "=")
+
+-- Show info/warning messages
+U.info("Macro saved")
+U.warn("No macro found")
+```
+
+### Example Usage
+
+```lua
+-- Programmatically save current register to bank
+local ctx = require("macrobank.scopes").current_context()
+local keys = vim.fn.getreg("q")
+if keys ~= "" then
+  require("macrobank.store").add_many({
+    {name="my_macro", keys=keys, scope={type="global"}}
+  }, ctx)
+end
+
+-- Load a specific macro into register
+local Store = require("macrobank.store") 
+local macro = Store.find_by_name_scope("my_macro", {type="global"})
+if macro then
+  vim.fn.setreg("q", macro.keys, "n")
+end
+```
 
 ## 🤝 Contributing
 

@@ -23,6 +23,10 @@ local DEFAULTS = {
     open_live   = '<leader>mm',   -- open Live Macro Editor (registers)
     open_bank   = '<leader>mb',   -- open Macro Bank (saved macros)
   },
+
+  -- Editor buffer mappings override (optional)
+  live_editor_mappings = {},      -- override live editor buffer mappings: {action_name = 'keymap' | false}
+  bank_editor_mappings = {},      -- override bank editor buffer mappings: {action_name = 'keymap' | false}
 }
 
 M.config = vim.deepcopy(DEFAULTS)
@@ -38,12 +42,12 @@ function M.setup(user)
   -- Commands
   vim.api.nvim_create_user_command('MacroBankLive', function() require('macrobank.editor').open() end, {})
   vim.api.nvim_create_user_command('MacroBank',     function() require('macrobank.bank_editor').open() end, {})
-  
+
   vim.api.nvim_create_user_command('MacroBankSelect', function(opts)
     local Store = require('macrobank.store')
     local U = require('macrobank.util')
     local UI = require('macrobank.ui')
-    
+
     if opts.args == '' then
       -- No argument provided, open picker
       local show_all = opts.bang
@@ -55,7 +59,7 @@ function M.setup(user)
       end, nil, show_all)
       return
     end
-    
+
     -- Argument provided, select by name
     local name = opts.args
     local macro = nil
@@ -85,13 +89,13 @@ function M.setup(user)
       return names
     end
   })
-  
-  
+
+
   vim.api.nvim_create_user_command('MacroBankPlay', function(opts)
     local Store = require('macrobank.store')
     local U = require('macrobank.util')
     local UI = require('macrobank.ui')
-    
+
     if opts.args == '' then
       -- No argument provided, open picker
       local show_all = opts.bang
@@ -108,7 +112,7 @@ function M.setup(user)
       end, nil, show_all)
       return
     end
-    
+
     -- Argument provided, play by name
     local name = opts.args
     local macro = nil
@@ -152,7 +156,7 @@ function M.setup(user)
   if M.config.mappings and M.config.mappings.open_bank then
     vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.bank_editor').open, { desc = '[MacroBank] Edit saved macros' })
   end
-  
+
   -- Define highlight groups
   vim.api.nvim_set_hl(0, 'MacroBankGroupHeader', { link = 'Function', default = true })
 end

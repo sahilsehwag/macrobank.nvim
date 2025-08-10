@@ -235,8 +235,20 @@ local function ensure()
 		vim.api.nvim_win_set_cursor(state.win, { first_macro_row, 0 })
 	end
 
-	local map = function(mode, lhs, rhs)
-		vim.keymap.set(mode, lhs, rhs, { buffer = state.buf, silent = true, nowait = true })
+	local map = function(mode, lhs, rhs, action_name)
+		-- Check for user override first
+		local override = cfg and cfg.bank_editor_mappings and cfg.bank_editor_mappings[action_name]
+		local key_to_use = lhs  -- default key
+		
+		if override ~= nil then
+			if override == false then
+				return  -- skip mapping entirely
+			else
+				key_to_use = override  -- use custom key
+			end
+		end
+		
+		vim.keymap.set(mode, key_to_use, rhs, { buffer = state.buf, silent = true, nowait = true })
 	end
 
 	-- Save current macro
@@ -255,7 +267,7 @@ local function ensure()
 		Store.update(id, { name = p.name, keys = U.to_termcodes(p.text) }, state.ctx)
 		redraw()
 		U.info('Saved "' .. p.name .. '"')
-	end)
+	end, 'save')
 
 	-- Delete current macro
 	map("n", "D", function()
@@ -268,7 +280,7 @@ local function ensure()
 		Store.delete(id, state.ctx)
 		redraw()
 		U.info("Deleted macro")
-	end)
+	end, 'delete')
 
 	-- Play macro
 	map("n", "<CR>", function()
@@ -298,7 +310,7 @@ local function ensure()
 			vim.cmd(("normal! %d@%s"):format(count, reg))
 			vim.fn.setreg(reg, prev, "n")
 		end)
-	end)
+	end, 'play')
 
 
 	-- Select macro into default register
@@ -353,7 +365,7 @@ local function ensure()
 
 		vim.fn.setreg(reg, macro.keys, "n")
 		U.info(('Loaded "%s" → @%s'):format(macro.name, reg))
-	end)
+	end, 'load')
 
 	-- History / rollback
 	map("n", "<C-h>", function()
@@ -393,7 +405,7 @@ local function ensure()
 			redraw()
 			U.info("Rolled back")
 		end)
-	end)
+	end, 'history')
 
 
 
@@ -407,12 +419,12 @@ local function ensure()
 			vim.fn.setreg(reg, m.keys, "n")
 			U.info(('Loaded "%s" → @%s'):format(m.name, reg))
 		end, state.ctx)
-	end)
+	end, 'search')
 
 	map("n", "<Tab>", function()
 		B.close()
 		require("macrobank.editor").open(state.ctx)
-	end)
+	end, 'switch')
 
 	-- Change scope mappings (similar to live editor)
 	local function change_scope(scope_type)
@@ -443,25 +455,25 @@ local function ensure()
 
 	map("n", "<C-g>", function()
 		change_scope("global")
-	end)
+	end, 'change_scope_global')
 	map("n", "<C-t>", function()
 		change_scope("filetype")
-	end)
+	end, 'change_scope_filetype')
 	map("n", "<C-f>", function()
 		change_scope("file")
-	end)
+	end, 'change_scope_file')
 	map("n", "<C-d>", function()
 		change_scope("directory")
-	end)
+	end, 'change_scope_directory')
 	map("n", "<C-c>", function()
 		change_scope("cwd")
-	end)
+	end, 'change_scope_cwd')
 	map("n", "<C-p>", function()
 		change_scope("project")
-	end)
+	end, 'change_scope_project')
 
 	-- Close
-	map("n", "<Esc>", B.close)
+	map("n", "<Esc>", B.close, 'close')
 end
 
 function B.open(ctx)

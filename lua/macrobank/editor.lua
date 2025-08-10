@@ -118,7 +118,21 @@ local function ensure()
     end
   end
 
-  local map = function(mode, lhs, rhs) vim.keymap.set(mode, lhs, rhs, { buffer=state.buf, silent=true, nowait=true }) end
+  local map = function(mode, lhs, rhs, action_name) 
+    -- Check for user override first
+    local override = cfg and cfg.live_editor_mappings and cfg.live_editor_mappings[action_name]
+    local key_to_use = lhs  -- default key
+    
+    if override ~= nil then
+      if override == false then
+        return  -- skip mapping entirely
+      else
+        key_to_use = override  -- use custom key
+      end
+    end
+    
+    vim.keymap.set(mode, key_to_use, rhs, { buffer=state.buf, silent=true, nowait=true })
+  end
 
   -- Save current register
   map('n', '<C-s>', function()
@@ -130,7 +144,7 @@ local function ensure()
     vim.api.nvim_buf_set_lines(state.buf, row-1, row, false, { U.readable(info.text) })
     render_register_labels() -- Re-render virtual text after content change
     U.info('Saved @'..info.reg)
-  end)
+  end, 'save')
 
   -- Play current register
   map('n', '<CR>', function()
@@ -139,14 +153,14 @@ local function ensure()
     state.last_run_reg = info.reg
     local count = vim.v.count1
     E.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, info.reg)) end)
-  end)
+  end, 'play')
 
   -- Repeat last macro
   map('n', '.', function()
     if not state.last_run_reg then return U.warn('No macro played yet') end
     local count = vim.v.count1
     E.close(); vim.schedule(function() vim.cmd(('normal! %d@%s'):format(count, state.last_run_reg)) end)
-  end)
+  end, 'repeat')
 
   -- Clear current register
   map('n', 'D', function()
@@ -178,7 +192,7 @@ local function ensure()
     vim.bo[state.buf].modifiable = old_modifiable
 
     U.info('Cleared @'..info.reg)
-  end)
+  end, 'delete')
 
   -- Load macro from bank into current register (available only)
   map('n', '@', function()
@@ -192,7 +206,7 @@ local function ensure()
       render_register_labels() -- Re-render virtual text after content change
       U.info(('Loaded "%s" → @%s'):format(m.name, info.reg))
     end, state.ctx, false)
-  end)
+  end, 'load')
 
   -- Load macro from bank into current register (all macros)
   map('n', '`', function()
@@ -206,7 +220,7 @@ local function ensure()
       render_register_labels() -- Re-render virtual text after content change
       U.info(('Loaded "%s" → @%s'):format(m.name, info.reg))
     end, state.ctx, true)
-  end)
+  end, 'load_all')
 
   local function save_current(scope_type)
     local info = get_current_register_info()
@@ -222,14 +236,14 @@ local function ensure()
     end, scope)
   end
 
-  map('n', '<C-g>', function() save_current('global') end)
-  map('n', '<C-t>', function() save_current('filetype') end)
-  map('n', '<C-f>', function() save_current('file') end)
-  map('n', '<C-d>', function() save_current('directory') end)
-  map('n', '<C-c>', function() save_current('cwd') end)
-  map('n', '<C-p>', function() save_current('project') end)
+  map('n', '<C-g>', function() save_current('global') end, 'save_global')
+  map('n', '<C-t>', function() save_current('filetype') end, 'save_filetype')
+  map('n', '<C-f>', function() save_current('file') end, 'save_file')
+  map('n', '<C-d>', function() save_current('directory') end, 'save_directory')
+  map('n', '<C-c>', function() save_current('cwd') end, 'save_cwd')
+  map('n', '<C-p>', function() save_current('project') end, 'save_project')
 
-  map('n', '<Tab>', function() E.close(); require('macrobank.bank_editor').open(state.ctx) end)
+  map('n', '<Tab>', function() E.close(); require('macrobank.bank_editor').open(state.ctx) end, 'switch')
 
   -- Register navigation (a-z jumps to specific register)
   for c = string.byte('a'), string.byte('z') do
@@ -241,11 +255,11 @@ local function ensure()
           break
         end
       end
-    end)
+    end, 'jump_' .. reg)
   end
 
   -- Close
-  map('n', '<Esc>', E.close)
+  map('n', '<Esc>', E.close, 'close')
 end
 
 -- Public API

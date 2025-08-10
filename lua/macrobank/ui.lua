@@ -17,12 +17,17 @@ local function context_for(scope)
   return v
 end
 
-function UI.picker_label(m)
+function UI.picker_label(m, is_active)
   local scope = m.scope and m.scope.type or 'global'
   local ctx = context_for(m.scope)
   local scope_icon = S.icon_only(scope, cfg and cfg.nerd_icons)
-  if ctx ~= '' then return string.format('%s %s (%s)', scope_icon, m.name, ctx) end
-  return string.format('%s %s', scope_icon, m.name)
+  
+  -- Use emoji indicators for active/inactive status
+  local status_emoji = is_active and '🟢' or '🔴'  -- green circle for active, red for inactive
+  local prefix = string.format('%s %s', status_emoji, scope_icon)
+  
+  if ctx ~= '' then return string.format('%s %s (%s)', prefix, m.name, ctx) end
+  return string.format('%s %s', prefix, m.name)
 end
 
 -- Context-aware select; returns chosen macro (default: available only)
@@ -47,7 +52,8 @@ function UI.select_macro(cb, ctx, show_all)
 
   local items, map = {}, {}
   for _, m in ipairs(macros_to_show) do
-    table.insert(items, UI.picker_label(m))
+    local is_active = S.matches(m.scope, cur)
+    table.insert(items, UI.picker_label(m, is_active))
     table.insert(map, m)
   end
 
@@ -93,9 +99,11 @@ end
 -- Direct picker search by name+keys
 function UI.search_macros(cb, ctx)
   local all = Store.all(ctx)
+  local cur = ctx or S.current_context(function() return Store.get_session_id() end)
   local labels, map = {}, {}
   for _, m in ipairs(all) do
-    local label = UI.picker_label(m)
+    local is_active = S.matches(m.scope, cur)
+    local label = UI.picker_label(m, is_active)
     table.insert(labels, label); table.insert(map, m)
   end
   vim.ui.select(labels, { prompt = 'Search macros' }, function(choice)
