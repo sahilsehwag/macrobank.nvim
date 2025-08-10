@@ -30,8 +30,8 @@ local function write_file(path, s)
 end
 
 local DEFAULT_PROJECT_FILES = {
-  '.macrobank.json', '.macrograph.json', -- compat
-  '.nvim/macrobank.json', '.nvim/macrograph.json',
+  '.macrobank.json',
+  '.nvim/macrobank.json',
 }
 
 -- Upward search from a directory for any of the candidate files; returns all found
