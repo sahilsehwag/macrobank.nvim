@@ -166,10 +166,7 @@ When in the Macro Bank (`:MacroBank`):
 | `D` | Delete | Remove macro from bank |
 | `<C-s>` | Save | Save macro under cursor with edited content |
 | `<C-h>` | History | View/rollback to previous versions |
-| `/` | Search | Fuzzy search for macros |
-| `M` | Keymap | Generate keymap code for the macro |
-| `X` | Export | Export macro as Lua snippet |
-| `.` | Repeat | Repeat last executed macro |
+| `g/` | Search | Search for macros with picker |
 | `<Tab>` | Switch | Toggle to Live Macro Editor |
 | `<Esc>` | Quit | Close the editor |
 
@@ -266,12 +263,8 @@ The plugin maintains a history of macro changes, allowing you to:
 - Rollback to any previous version
 - Track when macros were modified
 
-### Fuzzy Search
-Use `/` in the Macro Bank to search for macros by name or content using fuzzy matching.
-
-### Export and Code Generation
-- `X` - Export macro as a Lua snippet for use in configuration files
-- `M` - Generate Vim keymap code to bind the macro to a key combination
+### Search
+Use `g/` in the Macro Bank to open a picker for searching macros by name or content.
 
 ### Advanced Scope Matching
 The plugin intelligently matches macros based on context:

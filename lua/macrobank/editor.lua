@@ -229,7 +229,7 @@ local function ensure()
   map('n', '<C-c>', function() save_current('cwd') end)
   map('n', '<C-p>', function() save_current('project') end)
 
-  map('n', '<Tab>', function() E.close(); require('macrobank.saved_editor').open(state.ctx) end)
+  map('n', '<Tab>', function() E.close(); require('macrobank.bank_editor').open(state.ctx) end)
 
   -- Register navigation (a-z jumps to specific register)
   for c = string.byte('a'), string.byte('z') do

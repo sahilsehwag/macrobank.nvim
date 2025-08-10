@@ -301,21 +301,6 @@ local function ensure()
 		end)
 	end)
 
-	-- Repeat last played macro
-	map("n", ".", function()
-		if not state.last_run_keys then
-			return U.warn("No macro played yet")
-		end
-		local reg = (cfg and cfg.default_play_register) or "q"
-		local prev = vim.fn.getreg(reg)
-		vim.fn.setreg(reg, state.last_run_keys, "n")
-		local count = vim.v.count1
-		B.close()
-		vim.schedule(function()
-			vim.cmd(("normal! %d@%s"):format(count, reg))
-			vim.fn.setreg(reg, prev, "n")
-		end)
-	end)
 
 	-- Select macro into default register
 	local load_macro_in_default_register = function ()
@@ -411,98 +396,10 @@ local function ensure()
 		end)
 	end)
 
-	-- Export as Lua snippet(s)
-	map("n", "X", function()
-		local row = vim.api.nvim_win_get_cursor(state.win)[1]
-		if row <= state.header_lines then
-			return
-		end
-		local idx = row - state.header_lines
-		local id = state.id_by_row[idx]
-		if not id then
-			return
-		end
-		local macro = nil
-		for _, m in ipairs(Store.all(state.ctx)) do
-			if m.id == id then
-				macro = m
-				break
-			end
-		end
-		if not macro then
-			return
-		end
-		local lua = string.format(
-			[[-- MacroBank snippet
-return {
-  name = %q,
-  scope = %q,
-  keys = %q, -- feed with: vim.api.nvim_replace_termcodes(keys, true, true, true)
-}]],
-			macro.name,
-			macro.scope and macro.scope.type or "global",
-			macro.keys
-		)
-		vim.cmd("new")
-		local b = vim.api.nvim_get_current_buf()
-		vim.bo[b].filetype = "lua"
-		vim.api.nvim_buf_set_lines(b, 0, -1, false, vim.split(lua, "\n"))
-	end)
 
-	-- Keymap generator
-	map("n", "M", function()
-		local row = vim.api.nvim_win_get_cursor(state.win)[1]
-		if row <= state.header_lines then
-			return
-		end
-		local idx = row - state.header_lines
-		local id = state.id_by_row[idx]
-		if not id then
-			return
-		end
-		local macro = nil
-		for _, m in ipairs(Store.all(state.ctx)) do
-			if m.id == id then
-				macro = m
-				break
-			end
-		end
-		if not macro then
-			return
-		end
-		vim.ui.input({ prompt = "Map key (e.g., <leader>mk):" }, function(lhs)
-			if not lhs or lhs == "" then
-				return
-			end
-			vim.ui.select({ "n", "v", "x", "i" }, { prompt = "Mode" }, function(mode)
-				if not mode then
-					return
-				end
-				local code = string.format(
-					[[-- MacroBank keymap
-vim.keymap.set(%q, %q, function()
-  local reg = %q
-  local prev = vim.fn.getreg(reg)
-  vim.fn.setreg(reg, %q, 'n')
-  vim.cmd('normal! @'..reg)
-  vim.fn.setreg(reg, prev, 'n')
-end, { desc = 'Play macro: %s' })]],
-					mode,
-					lhs,
-					(cfg.default_play_register or "q"),
-					macro.keys,
-					macro.name
-				)
-				vim.cmd("new")
-				local b = vim.api.nvim_get_current_buf()
-				vim.bo[b].filetype = "lua"
-				vim.api.nvim_buf_set_lines(b, 0, -1, false, vim.split(code, "\n"))
-			end)
-		end)
-	end)
 
 	-- Search (fuzzy)
-	map("n", "/", function()
+	map("n", "g/", function()
 		UI.search_macros(function(m)
 			if not m then
 				return

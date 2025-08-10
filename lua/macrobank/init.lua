@@ -33,11 +33,11 @@ function M.setup(user)
   require('macrobank.store').setup(M.config)
   require('macrobank.ui').setup(M.config)
   require('macrobank.editor').setup(M.config)
-  require('macrobank.saved_editor').setup(M.config)
+  require('macrobank.bank_editor').setup(M.config)
 
   -- Commands
   vim.api.nvim_create_user_command('MacroBankLive', function() require('macrobank.editor').open() end, {})
-  vim.api.nvim_create_user_command('MacroBank',     function() require('macrobank.saved_editor').open() end, {})
+  vim.api.nvim_create_user_command('MacroBank',     function() require('macrobank.bank_editor').open() end, {})
   
   vim.api.nvim_create_user_command('MacroBankSelect', function(opts)
     local Store = require('macrobank.store')
@@ -150,7 +150,7 @@ function M.setup(user)
     vim.keymap.set('n', M.config.mappings.open_live, require('macrobank.editor').open, { desc = '[Macrobank]: Edit macros' })
   end
   if M.config.mappings and M.config.mappings.open_bank then
-    vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.saved_editor').open, { desc = '[MacroBank] Edit saved macros' })
+    vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.bank_editor').open, { desc = '[MacroBank] Edit saved macros' })
   end
   
   -- Define highlight groups
