@@ -53,14 +53,27 @@ function M.setup(user)
       vim.cmd(('normal! @%s'):format(reg))
     end
     vim.fn.setreg(reg, prev, 'n')
-  end, { nargs=1, range=true })
+  end, {
+    nargs = 1,
+    range = true,
+    complete = function(ArgLead, CmdLine, CursorPos)
+      local Store = require('macrobank.store')
+      local names = {}
+      for _, macro in ipairs(Store.all()) do
+        if macro.name and macro.name:match('^' .. vim.pesc(ArgLead)) then
+          table.insert(names, macro.name)
+        end
+      end
+      return names
+    end
+  })
 
   -- Sample mappings (optional)
   if M.config.mappings and M.config.mappings.open_live then
-    vim.keymap.set('n', M.config.mappings.open_live, require('macrobank.editor').open, { desc = 'MacroBank: Live Macro Editor' })
+    vim.keymap.set('n', M.config.mappings.open_live, require('macrobank.editor').open, { desc = '[Macrobank]: Edit macros' })
   end
   if M.config.mappings and M.config.mappings.open_bank then
-    vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.saved_editor').open, { desc = 'MacroBank: Saved Macro Bank' })
+    vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.saved_editor').open, { desc = '[MacroBank] Edit saved macros' })
   end
 end
 
