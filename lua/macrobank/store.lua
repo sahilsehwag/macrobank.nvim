@@ -60,15 +60,16 @@ local function project_paths(ctx)
   local list = {}
   if type(cfg.project_store_paths) == 'string' and cfg.project_store_paths ~= '' then
     list = { cfg.project_store_paths }
+  elseif type(cfg.project_store_paths) == 'table' and #cfg.project_store_paths > 0 then
+    list = cfg.project_store_paths
   else
-    for _, f in ipairs(DEFAULT_PROJECT_FILES) do table.insert(list, f) end
-    if type(cfg.project_store_paths) == 'table' then
-      for _, f in ipairs(cfg.project_store_paths) do table.insert(list, f) end
+    -- Use defaults with smart .nvim/ detection
+    local root = vim.fn.getcwd()
+    if vim.loop.fs_stat(root .. '/.nvim') and (vim.loop.fs_stat(root .. '/.nvim').type == 'directory') then
+      list = { '.nvim/macrobank.json', '.macrobank.json' }
+    else
+      list = { '.macrobank.json', '.nvim/macrobank.json' }
     end
-  end
-  -- Also consider the explicitly configured default creation path during discovery
-  if cfg and type(cfg.project_store_default_path) == 'string' and cfg.project_store_default_path ~= '' then
-    table.insert(list, cfg.project_store_default_path)
   end
   return find_upwards(start_dir, list)
 end
@@ -109,28 +110,42 @@ local function save_to_path(path, data)
   return write_file(path, json_encode({ version = 2, macros = data.macros }))
 end
 
+-- Get the first project path for creation when no project store exists
+local function get_project_create_path(ctx)
+  local curr_file = (ctx and ctx.file and ctx.file ~= '') and ctx.file or vim.api.nvim_buf_get_name(0)
+  local root = curr_file ~= '' and vim.fn.fnamemodify(curr_file, ':h') or vim.loop.cwd()
+  -- Walk up to find project root (could be improved, but use getcwd for simplicity)
+  root = vim.fn.getcwd()
+
+  -- Determine the first path from project_store_paths configuration
+  local first_path
+  if type(cfg.project_store_paths) == 'string' and cfg.project_store_paths ~= '' then
+    first_path = cfg.project_store_paths
+  elseif type(cfg.project_store_paths) == 'table' and #cfg.project_store_paths > 0 then
+    first_path = cfg.project_store_paths[1]
+  else
+    -- Use smart default: .nvim/macrobank.json if .nvim/ exists, otherwise .macrobank.json
+    if vim.loop.fs_stat(root .. '/.nvim') and (vim.loop.fs_stat(root .. '/.nvim').type == 'directory') then
+      first_path = '.nvim/macrobank.json'
+    else
+      first_path = '.macrobank.json'
+    end
+  end
+
+  return root .. '/' .. first_path
+end
+
 -- Choose a target file for a new macro, based on scope
 local function choose_target_path(scope, ctx)
-  local proj = project_paths(ctx)
-  local default_proj_target = (#proj > 0) and proj[1] or nil
-  local function default_project_create_path()
-    -- If user configured an explicit default path, use that
-    if cfg and type(cfg.project_store_default_path) == 'string' and cfg.project_store_default_path ~= '' then
-      return vim.fn.getcwd() .. '/' .. cfg.project_store_default_path
-    end
-    -- Auto: if .nvim directory exists at project root, prefer it; else fallback to .macrobank.json
-    local root = vim.fn.getcwd()
-    if vim.loop.fs_stat(root .. '/.nvim') and (vim.loop.fs_stat(root .. '/.nvim').type == 'directory') then
-      return root .. '/.nvim/macrobank.json'
-    end
-    return root .. '/.macrobank.json'
-  end
-  if scope and (scope.type == 'file' or scope.type == 'directory' or scope.type == 'cwd' or scope.type == 'filetype') then
-    return default_proj_target or default_project_create_path() or global_path()
-  end
+  -- Only project-scoped macros go to project config
   if scope and scope.type == 'project' then
-    return default_proj_target or default_project_create_path()
+    local existing_proj_paths = project_paths(ctx)
+    -- Use any existing project config file; if none exist, create using first configured path
+    local existing_proj_target = (#existing_proj_paths > 0) and existing_proj_paths[1] or nil
+    return existing_proj_target or get_project_create_path(ctx)
   end
+
+  -- All other scopes (global, filetype, file, directory, cwd) go to global config
   return global_path()
 end
 

@@ -59,12 +59,8 @@ require("macrobank").setup({
   -- Project-local store discovery:
   --  - string: override defaults (single relative path, e.g. '.nvim/macrobank.json')
   --  - list:   merge with defaults below
+  --  - first entry is used for creation when no project store exists yet
   project_store_paths = nil, -- {'.macrobank.json', '.nvim/macrobank.json'} or '.macrobank.json'
-
-  -- Default creation path for project store when none exists yet.
-  --  - string (relative to project root): e.g. '.nvim/macrobank.json' or '.macrobank.json'
-  --  - when nil: if '.nvim/' directory exists in project root, use '.nvim/macrobank.json'; otherwise '.macrobank.json'
-  project_store_default_path = nil,
 
   default_select_register = 'q',  -- register to load selected macro into
   default_play_register   = 'q',  -- temporary register used to play from bank
@@ -215,18 +211,18 @@ The plugin automatically discovers project-local macro files by searching upward
 - `.macrobank.json`
 - `.nvim/macrobank.json`
 
-If you set `project_store_default_path`, that path is also considered during discovery (in addition to the above), so existing files there will be read.
+**What goes in project files**: Project config files **only** store macros with **project scope** (saved with `<C-p>` key). All other scopes (global, filetype, file, directory, cwd) are saved to the global config regardless of whether a project file exists.
 
-If no project macro file exists yet and you save a macro with a project-related scope, the default creation path is:
-- `.nvim/macrobank.json` when a `.nvim/` directory exists at the project root
-- Otherwise `.macrobank.json` at the project root
+**New project file creation**: When saving a project-scoped macro (`<C-p>`) and no existing project macro file is found, the plugin creates a new file using:
+- The **first entry** from your `project_store_paths` configuration, or
+- Smart default: `.nvim/macrobank.json` if a `.nvim/` directory exists at project root, otherwise `.macrobank.json`
 
-You can override the default creation path with `project_store_default_path`, for example:
+You can control the creation path by setting the first entry in `project_store_paths`:
 
 ```lua
 require("macrobank").setup({
-  -- Always create the project macro file inside .nvim/
-  project_store_default_path = '.nvim/macrobank.json',
+  -- Always create new project files as .nvim/macrobank.json
+  project_store_paths = {'.nvim/macrobank.json', '.macrobank.json'},
 })
 ```
 
@@ -374,19 +370,54 @@ The commands behave differently based on whether you use the bang (`!`) modifier
 
 ## 📚 Lua API
 
-The plugin exposes several Lua functions for programmatic access:
+**Convenient Re-exports**: Import everything directly from the main module:
+
+```lua
+local MB = require('macrobank')
+
+-- UI Functions
+MB.open_live()                                -- open Live Macro Editor
+MB.open_bank()                                -- open Macro Bank  
+MB.select_macro(callback, ctx, show_all)      -- show macro picker
+MB.search_macros(callback, ctx)               -- search macro picker
+
+-- Store Operations
+local all_macros = MB.store_all(ctx)          -- get all macros for context
+MB.store_add_many(macros, ctx)                -- add multiple macros
+MB.store_update(id, changes, ctx)             -- update existing macro
+MB.store_delete(id, ctx)                      -- delete macro
+local macro = MB.store_find_by_name_scope(name, scope, ctx)  -- find specific macro
+local history = MB.store_history(id, ctx)     -- get macro version history
+local active, inactive = MB.store_partition_by_context(ctx)  -- partition by context
+local session_id = MB.get_session_id()        -- get current session ID
+
+-- Advanced: Direct module access
+local S = MB.scopes                           -- scope utilities
+local U = MB.util                             -- utility functions
+```
+
+The plugin exposes comprehensive Lua functions for programmatic access:
 
 ### Core Functions
 
 ```lua
 -- Setup plugin with configuration
-require("macrobank").setup({...})
+require("macrobank").setup({
+  -- your config here
+})
 
--- Open Live Macro Editor
-require("macrobank.editor").open(ctx)
+-- Direct module access (if you prefer explicit imports)
+local Editor = require("macrobank.editor")
+local BankEditor = require("macrobank.bank_editor")
 
--- Open Macro Bank Editor  
-require("macrobank.bank_editor").open(ctx)
+-- Open editors with optional context
+Editor.open(ctx)      -- Live Macro Editor
+BankEditor.open(ctx)  -- Macro Bank Editor
+
+-- Context is optional - will use current context if not provided
+local S = require("macrobank.scopes")
+local Store = require("macrobank.store")
+local current_ctx = S.current_context(function() return Store.get_session_id() end)
 ```
 
 ### UI Functions
@@ -397,26 +428,42 @@ local UI = require("macrobank.ui")
 -- Show macro selection picker
 UI.select_macro(function(macro)
   if macro then
-    print("Selected:", macro.name)
+    print("Selected:", macro.name, "Keys:", macro.keys)
+    -- Load into register
+    vim.fn.setreg('q', macro.keys, 'n')
   end
-end, ctx, show_all)
+end, ctx, show_all)  -- show_all: false = context only, true = all scopes
 
--- Show search picker
+-- Show search picker (fuzzy search interface)
 UI.search_macros(function(macro)
   if macro then
     print("Found:", macro.name)
+    vim.fn.setreg('x', macro.keys, 'n')
   end
 end, ctx)
 
--- Input macro name with scope context
+-- Input macro name with scope-aware prompt
 UI.input_name("default_name", function(name)
-  print("Entered name:", name)
-end, scope)
+  if name and name ~= '' then
+    print("User entered name:", name)
+  end
+end, scope)  -- scope affects the prompt text
 
--- Select scope type
-UI.input_scope(function(scope)
-  print("Selected scope:", scope.type)
-end, ctx)
+-- Select scope type interactively
+UI.input_scope(function(selected_scope)
+  if selected_scope then
+    print("Selected scope:", selected_scope.type, "Value:", selected_scope.value)
+  end
+end, ctx)  -- ctx provides defaults for scope values
+
+-- Generate picker label (used internally)
+local label = UI.picker_label(macro, is_active)  -- includes emoji indicators
+
+-- Conflict resolution when saving duplicates
+UI.resolve_conflict(name, scope, function(choice)
+  -- choice: "Rename", "Overwrite", "Duplicate", "Cancel"
+  print("User chose:", choice)
+end)
 ```
 
 ### Store Functions
@@ -424,47 +471,91 @@ end, ctx)
 ```lua
 local Store = require("macrobank.store")
 
--- Get all macros for context
-local macros = Store.all(ctx)
+-- Get all macros (merged from global + project stores)
+local all_macros = Store.all(ctx)  -- ctx optional, uses current if nil
 
--- Add new macros
-Store.add_many({{name="test", keys="itest", scope={type="global"}}}, ctx)
+-- Add multiple macros at once
+local new_macros = {
+  {name="global_macro", keys="iHello", scope={type="global"}},
+  {name="js_macro", keys="iconsole.log();", scope={type="filetype", value="javascript"}},
+  {name="project_macro", keys="ireact", scope={type="project"}}
+}
+Store.add_many(new_macros, ctx)
 
--- Update existing macro
-Store.update(macro_id, {name="new_name", keys="inew"}, ctx)
+-- Update existing macro (preserves history)
+Store.update(macro_id, {
+  name = "updated_name", 
+  keys = "inew content", 
+  scope = {type="filetype", value="lua"}
+}, ctx)
 
--- Delete macro
+-- Delete macro permanently
 Store.delete(macro_id, ctx)
 
--- Find macro by name and scope
-local macro = Store.find_by_name_scope("test", {type="global"}, ctx)
+-- Find specific macro
+local found = Store.find_by_name_scope("my_macro", {type="global"}, ctx)
+if found then
+  print("Found macro:", found.name, "ID:", found.id)
+end
 
--- Get macro history
-local history = Store.history(macro_id, ctx)
+-- Get version history for rollback
+local versions = Store.history(macro_id, ctx)
+for i, version in ipairs(versions) do
+  print("Version", i, ":", version.name, "at", version.updated_at)
+end
 
--- Get context-aware macro partitions
-local active, inactive = Store.partition_by_context(ctx)
+-- Context-aware partitioning
+local active_macros, other_macros = Store.partition_by_context(ctx)
+print("Active in current context:", #active_macros)
+print("Available from other contexts:", #other_macros)
+
+-- Session management
+local session_id = Store.get_session_id()
+print("Current session:", session_id)
+
+-- Setup configuration (called by main setup)
+Store.setup(config)
 ```
 
 ### Scope Functions
 
 ```lua
 local S = require("macrobank.scopes")
+local Store = require("macrobank.store")
 
--- Get current context
-local ctx = S.current_context(function() return Store.get_session_id() end)
+-- Get current context (file, directory, filetype, cwd)
+local ctx = S.current_context(function() 
+  return Store.get_session_id() 
+end)
+print("Current file:", ctx.file)
+print("Current directory:", ctx.dir) 
+print("Current filetype:", ctx.filetype)
+print("Current working dir:", ctx.cwd)
 
--- Check if macro scope matches context
-local matches = S.matches(macro.scope, ctx)
+-- Check if a macro's scope matches current context
+local macro = {scope = {type="filetype", value="lua"}}
+local is_available = S.matches(macro.scope, ctx)
+print("Macro available:", is_available)
 
--- Get default value for scope type
-local value = S.default_value_for("filetype", ctx)
+-- Get appropriate default values for scope types
+local file_default = S.default_value_for("file", ctx)      -- current file path
+local ft_default = S.default_value_for("filetype", ctx)    -- current filetype
+local dir_default = S.default_value_for("directory", ctx)  -- current directory
+local cwd_default = S.default_value_for("cwd", ctx)        -- current working directory
+local proj_default = S.default_value_for("project", ctx)   -- "project"
 
--- Get scope icon
-local icon = S.icon_only("global", true) -- true = nerd icons
+-- Get scope icons (respects nerd_icons config)
+local global_icon = S.icon_only("global", true)       -- '' or 'G'
+local file_icon = S.icon_only("file", false)          -- 'F' (ASCII fallback)
+local project_icon = S.icon_only("project", true)     -- ''
 
--- Get human readable scope label
-local label = S.label(scope, true)
+-- Generate human-readable scope labels
+local scope = {type="file", value="/home/user/script.lua"}
+local label_with_icons = S.label(scope, true)   -- "󰈔 file(/home/user/script.lua)" 
+local label_ascii = S.label(scope, false)        -- "F file(/home/user/script.lua)"
+
+local global_scope = {type="global"}
+local global_label = S.label(global_scope, true) -- " global"
 ```
 
 ### Utility Functions
@@ -472,41 +563,159 @@ local label = S.label(scope, true)
 ```lua
 local U = require("macrobank.util")
 
--- Convert termcodes
-local keys = U.to_termcodes("\\<Esc>iHello")
+-- Key processing
+local termcodes = U.to_termcodes("\\<Esc>iHello\\<CR>")  -- Convert to actual codes
+local readable = U.readable("\\<Esc>iHello\\<CR>")      -- "⎋iHello⏎" (for display)
 
--- Make keys readable for display  
-local display = U.readable("\\<Esc>iHello") -- "⎋iHello"
+-- Line parsing (used internally by editors)
+local reg_info = U.parse_reg_line("a  iHello World")    -- {reg="a", text="iHello World"}
+local bank_info = U.parse_bank_line("my_macro  ⎋itest") -- {name="my_macro", text="⎋itest"}
 
--- Parse bank editor line
-local parsed = U.parse_bank_line("macro_name  ⎋itest")
+-- ID generation
+local unique_id = U.uuid()  -- "12345678-1234-5678" (timestamp-based)
 
--- Create horizontal rule
-local hr = U.hr("Title", 80, "=")
+-- UI helpers
+local separator = U.hr("Section Title", 80, "=")  -- "===== Section Title ====="
+local empty_line = U.hr("", 60, "-")               -- "----...----" (60 chars)
+local padded = U.hr("Center", 20, " ")             -- "    Center    "
 
--- Show info/warning messages
-U.info("Macro saved")
-U.warn("No macro found")
+-- Notification system
+U.info("Macro saved successfully")     -- vim.notify with INFO level
+U.warn("No macro found with that name") -- vim.notify with WARN level  
+U.err("Failed to write macro file")    -- vim.notify with ERROR level
+
+-- Fuzzy matching (fallback if vim.fn.matchfuzzy unavailable)
+local items = {"test_macro", "another_test", "different"}
+local matches = U.matchfuzzy(items, "test")  -- {"test_macro", "another_test"}
+
+-- Date/time formatting (for history display)
+local timestamp = os.time()
+local formatted = U.format_datetime(timestamp)  -- "2023-08-11 14:30:25"
+
+-- String utilities
+local trimmed = U.trim("  hello world  ")  -- "hello world"
 ```
 
-### Example Usage
+### Complete Examples
+
+#### Basic Macro Management
 
 ```lua
--- Programmatically save current register to bank
-local ctx = require("macrobank.scopes").current_context()
+local MB = require('macrobank')
+local S = MB.scopes
+local ctx = S.current_context(function() return MB.get_session_id() end)
+
+-- Save current register to bank
 local keys = vim.fn.getreg("q")
 if keys ~= "" then
-  require("macrobank.store").add_many({
-    {name="my_macro", keys=keys, scope={type="global"}}
+  MB.store_add_many({
+    {name="format_json", keys=keys, scope={type="filetype", value="json"}}
   }, ctx)
+  print("Macro saved as format_json for JSON files")
 end
 
--- Load a specific macro into register
-local Store = require("macrobank.store") 
-local macro = Store.find_by_name_scope("my_macro", {type="global"})
+-- Load and execute a macro
+local macro = MB.store_find_by_name_scope("format_json", {type="filetype", value="json"}, ctx)
 if macro then
-  vim.fn.setreg("q", macro.keys, "n")
+  vim.fn.setreg("x", macro.keys, "n")
+  vim.cmd("normal! @x")  -- Execute it
 end
+```
+
+#### Advanced Integration
+
+```lua
+-- Custom macro picker with filtering
+local function my_macro_picker()
+  local MB = require('macrobank')
+  local ctx = MB.scopes.current_context(function() return MB.get_session_id() end)
+  
+  -- Get only JavaScript macros
+  local all_macros = MB.store_all(ctx)
+  local js_macros = vim.tbl_filter(function(m)
+    return m.scope and m.scope.type == "filetype" and m.scope.value == "javascript"
+  end, all_macros)
+  
+  if #js_macros == 0 then
+    MB.util.warn("No JavaScript macros found")
+    return
+  end
+  
+  -- Show custom picker
+  local items = vim.tbl_map(function(m) return m.name .. " - " .. MB.util.readable(m.keys) end, js_macros)
+  vim.ui.select(items, {prompt = "Select JS Macro:"}, function(choice, idx)
+    if choice and js_macros[idx] then
+      vim.fn.setreg('j', js_macros[idx].keys, 'n')
+      MB.util.info('Loaded ' .. js_macros[idx].name .. ' → @j')
+    end
+  end)
+end
+
+-- Create command
+vim.api.nvim_create_user_command('MyJSMacros', my_macro_picker, {})
+```
+
+#### Scope-Aware Workflow
+
+```lua
+-- Auto-save recording when stopping
+vim.api.nvim_create_autocmd('RecordingLeave', {
+  callback = function()
+    local reg = vim.fn.reg_recorded()
+    local keys = vim.fn.getreg(reg)
+    
+    if keys ~= '' then
+      local MB = require('macrobank')
+      local S = MB.scopes
+      local ctx = S.current_context(function() return MB.get_session_id() end)
+      
+      -- Determine scope based on current context
+      local scope = {type = "global"}
+      if ctx.filetype ~= '' then
+        scope = {type = "filetype", value = ctx.filetype}
+      end
+      
+      -- Prompt for name
+      MB.ui.input_name("macro_" .. reg, function(name)
+        if name and name ~= '' then
+          MB.store_add_many({
+            {name = name, keys = keys, scope = scope}
+          }, ctx)
+          MB.util.info('Auto-saved macro: ' .. name)
+        end
+      end, scope)
+    end
+  end
+})
+```
+
+#### Project-Specific Setup
+
+```lua
+-- In your project's .nvim/init.lua or similar
+require('macrobank').setup({
+  -- Store project macros in .nvim/ directory
+  project_store_default_path = '.nvim/macrobank.json',
+  
+  -- Custom keymaps for this project
+  live_editor_mappings = {
+    save_project = '<leader>mp',  -- Quick save to project scope
+  },
+  
+  -- Project-specific register defaults
+  default_select_register = 'p',  -- Use 'p' for project macros
+})
+
+-- Load project-specific macros on startup
+vim.api.nvim_create_autocmd('VimEnter', {
+  callback = function()
+    local MB = require('macrobank')
+    local project_macros = MB.store_partition_by_context()
+    if #project_macros > 0 then
+      MB.util.info('Loaded ' .. #project_macros .. ' project macros')
+    end
+  end
+})
 ```
 
 ## 🤝 Contributing

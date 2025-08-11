@@ -8,12 +8,8 @@ local DEFAULTS = {
   -- Project-local store discovery:
   --  - string: override defaults (single relative path, e.g. '.nvim/macrobank.json')
   --  - list:   merge with defaults below
+  --  - first entry is used for creation when no project store exists yet
   project_store_paths = nil, -- {'.macrobank.json', '.nvim/macrobank.json'} or '.macrobank.json'
-
-  -- Default creation path for project store when none exists yet.
-  --  - string (relative to project root): e.g. '.nvim/macrobank.json' or '.macrobank.json'
-  --  - when nil: if '.nvim/' directory exists in project root, use '.nvim/macrobank.json'; otherwise '.macrobank.json'
-  project_store_default_path = nil,
 
   default_select_register = 'q',  -- register to load selected macro into
   default_play_register   = 'q',  -- temporary register used to play from bank
@@ -156,5 +152,31 @@ function M.setup(user)
   -- Define highlight groups
   vim.api.nvim_set_hl(0, 'MacroBankGroupHeader', { link = 'Function', default = true })
 end
+
+-- Convenience re-exports so users can `require('macrobank')` directly
+local Editor = require('macrobank.editor')
+local Bank   = require('macrobank.bank_editor')
+local UI     = require('macrobank.ui')
+local Store  = require('macrobank.store')
+
+-- UI entry points
+M.open_live = Editor.open
+M.open_bank = Bank.open
+M.select_macro = UI.select_macro
+M.search_macros = UI.search_macros
+
+-- Store helpers (direct references)
+M.store_all = Store.all
+M.store_add_many = Store.add_many
+M.store_update = Store.update
+M.store_delete = Store.delete
+M.store_find_by_name_scope = Store.find_by_name_scope
+M.store_history = Store.history
+M.store_partition_by_context = Store.partition_by_context
+M.get_session_id = Store.get_session_id
+
+-- Scopes and utilities (advanced usage)
+M.scopes = require('macrobank.scopes')
+M.util   = require('macrobank.util')
 
 return M
