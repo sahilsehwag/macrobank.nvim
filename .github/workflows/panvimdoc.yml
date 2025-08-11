@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'README.md'
+      - 'lua/**/*.lua'
   workflow_dispatch: {}
 
 permissions:
@@ -28,8 +31,18 @@ jobs:
           demojify: true
           treesitter: true
 
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain doc/)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Push changes
+        if: steps.verify-changed-files.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "auto-update documentation"
+          commit_message: "docs: auto-update help from README [skip ci]"
           file_pattern: doc/*.txt

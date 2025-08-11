@@ -2,6 +2,14 @@
 
 A powerful Neovim plugin for managing, editing, and organizing macros with persistent storage across sessions and projects.
 
+<div align="center">
+  
+![MacroBank Demo](assets/Screenshot%202025-08-11%20at%209.52.33%20AM.png)
+
+*Manage your macros with a clean, intuitive interface*
+
+</div>
+
 ## ✨ Features
 
 - 📝 **Live Macro Editor**: Edit macros in real-time with quick navigation (a-z keys) and clean interface
@@ -11,6 +19,28 @@ A powerful Neovim plugin for managing, editing, and organizing macros with persi
 - 📁 **Project Support**: Automatic project-local macro discovery
 - 🎨 **Rich UI**: Clean interface with Nerd Font icons (optional)
 - ⚡ **Fast Access**: Built-in commands and customizable key mappings
+
+## 📸 Screenshots
+
+<div align="center">
+
+### Live Macro Editor
+Edit macros in real-time with quick navigation and clean interface
+![Live Macro Editor](assets/Screenshot%202025-08-11%20at%209.47.40%20AM.png)
+
+### Smart Macro Picker  
+Interactive macro selection with emoji status indicators and scope information
+![Macro Picker](assets/Screenshot%202025-08-11%20at%209.50.18%20AM.png)
+
+### Saved Macro Bank
+Manage your saved macros organized by scope with rich context information
+![Macro Bank](assets/Screenshot%202025-08-11%20at%209.52.33%20AM.png)
+
+### Macro History & Versioning
+View and rollback to previous versions of your macros
+![Macro History](assets/Screenshot%202025-08-11%20at%209.52.58%20AM.png)
+
+</div>
 
 ## 📦 Installation
 
@@ -244,6 +274,12 @@ Macros can be scoped to different contexts:
 4. Edit if needed, then save: `<C-s>` to save changes to register (or `D` to clear)
 5. Save to bank: `<C-g>` (save globally) and name it
 6. Later, load and use: `:MacroBankSelect my_macro`
+
+<div align="center">
+<img src="assets/Screenshot%202025-08-11%20at%209.47.40%20AM.png" width="600" alt="Live Editor in Action"/>
+
+*Live Macro Editor showing register contents and available actions*
+</div>
 
 ### Project-Specific Macros
 1. Create `.macrobank.json` in your project root

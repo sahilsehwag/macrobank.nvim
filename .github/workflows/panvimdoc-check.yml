@@ -1,0 +1,37 @@
+name: Check Documentation
+
+on:
+  push:
+    branches:
+      - main  
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    name: Check if documentation is up to date
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate documentation
+        uses: kdheepak/panvimdoc@main
+        with:
+          vimdoc: macrobank
+          version: "Neovim >= 0.8.0"
+          demojify: true
+          treesitter: true
+
+      - name: Check if documentation is up to date
+        run: |
+          if [ -n "$(git status --porcelain doc/)" ]; then
+            echo "❌ Documentation is out of date"
+            echo "Please run 'panvimdoc' locally and commit the changes"
+            git diff doc/
+            exit 1
+          else
+            echo "✅ Documentation is up to date"
+          fi
