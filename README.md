@@ -4,7 +4,7 @@ A powerful Neovim plugin for managing, editing, and organizing macros with persi
 
 <div align="center">
   
-![MacroBank Demo](assets/Screenshot%202025-08-11%20at%209.52.33%20AM.png)
+![MacroBank Demo](assets/macro_bank.png)
 
 *Manage your macros with a clean, intuitive interface*
 
