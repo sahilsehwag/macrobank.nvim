@@ -66,6 +66,10 @@ local function project_paths(ctx)
       for _, f in ipairs(cfg.project_store_paths) do table.insert(list, f) end
     end
   end
+  -- Also consider the explicitly configured default creation path during discovery
+  if cfg and type(cfg.project_store_default_path) == 'string' and cfg.project_store_default_path ~= '' then
+    table.insert(list, cfg.project_store_default_path)
+  end
   return find_upwards(start_dir, list)
 end
 
@@ -109,11 +113,23 @@ end
 local function choose_target_path(scope, ctx)
   local proj = project_paths(ctx)
   local default_proj_target = (#proj > 0) and proj[1] or nil
+  local function default_project_create_path()
+    -- If user configured an explicit default path, use that
+    if cfg and type(cfg.project_store_default_path) == 'string' and cfg.project_store_default_path ~= '' then
+      return vim.fn.getcwd() .. '/' .. cfg.project_store_default_path
+    end
+    -- Auto: if .nvim directory exists at project root, prefer it; else fallback to .macrobank.json
+    local root = vim.fn.getcwd()
+    if vim.loop.fs_stat(root .. '/.nvim') and (vim.loop.fs_stat(root .. '/.nvim').type == 'directory') then
+      return root .. '/.nvim/macrobank.json'
+    end
+    return root .. '/.macrobank.json'
+  end
   if scope and (scope.type == 'file' or scope.type == 'directory' or scope.type == 'cwd' or scope.type == 'filetype') then
-    return default_proj_target or global_path()
+    return default_proj_target or default_project_create_path() or global_path()
   end
   if scope and scope.type == 'project' then
-    return default_proj_target or (vim.fn.getcwd() .. '/.macrobank.json')
+    return default_proj_target or default_project_create_path()
   end
   return global_path()
 end

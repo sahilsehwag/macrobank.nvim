@@ -10,6 +10,11 @@ local DEFAULTS = {
   --  - list:   merge with defaults below
   project_store_paths = nil, -- {'.macrobank.json', '.nvim/macrobank.json'} or '.macrobank.json'
 
+  -- Default creation path for project store when none exists yet.
+  --  - string (relative to project root): e.g. '.nvim/macrobank.json' or '.macrobank.json'
+  --  - when nil: if '.nvim/' directory exists in project root, use '.nvim/macrobank.json'; otherwise '.macrobank.json'
+  project_store_default_path = nil,
+
   default_select_register = 'q',  -- register to load selected macro into
   default_play_register   = 'q',  -- temporary register used to play from bank
   nerd_icons = true,              -- use nerdfont icons in UI labels

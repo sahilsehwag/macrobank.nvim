@@ -61,6 +61,11 @@ require("macrobank").setup({
   --  - list:   merge with defaults below
   project_store_paths = nil, -- {'.macrobank.json', '.nvim/macrobank.json'} or '.macrobank.json'
 
+  -- Default creation path for project store when none exists yet.
+  --  - string (relative to project root): e.g. '.nvim/macrobank.json' or '.macrobank.json'
+  --  - when nil: if '.nvim/' directory exists in project root, use '.nvim/macrobank.json'; otherwise '.macrobank.json'
+  project_store_default_path = nil,
+
   default_select_register = 'q',  -- register to load selected macro into
   default_play_register   = 'q',  -- temporary register used to play from bank
   nerd_icons = true,              -- use nerdfont icons in UI labels
@@ -209,6 +214,21 @@ Macros are stored globally in `~/.config/nvim/macrobank_store.json` by default.
 The plugin automatically discovers project-local macro files by searching upward from the current file:
 - `.macrobank.json`
 - `.nvim/macrobank.json`
+
+If you set `project_store_default_path`, that path is also considered during discovery (in addition to the above), so existing files there will be read.
+
+If no project macro file exists yet and you save a macro with a project-related scope, the default creation path is:
+- `.nvim/macrobank.json` when a `.nvim/` directory exists at the project root
+- Otherwise `.macrobank.json` at the project root
+
+You can override the default creation path with `project_store_default_path`, for example:
+
+```lua
+require("macrobank").setup({
+  -- Always create the project macro file inside .nvim/
+  project_store_default_path = '.nvim/macrobank.json',
+})
+```
 
 ### Scoped Macros
 Macros can be scoped to different contexts:
