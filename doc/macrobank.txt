@@ -5,6 +5,7 @@ Table of Contents                                *macrobank-table-of-contents*
 
 1. macrobank.nvim                                   |macrobank-macrobank.nvim|
   - Features                               |macrobank-macrobank.nvim-features|
+  - Screenshots                         |macrobank-macrobank.nvim-screenshots|
   - Installation                       |macrobank-macrobank.nvim-installation|
   - Configuration                     |macrobank-macrobank.nvim-configuration|
   - Usage                                     |macrobank-macrobank.nvim-usage|
@@ -23,6 +24,7 @@ A powerful Neovim plugin for managing, editing, and organizing macros with
 persistent storage across sessions and projects.
 
 
+
 FEATURES                                   *macrobank-macrobank.nvim-features*
 
 - **Live Macro Editor**Edit macros in real-time with quick navigation (a-z keys) and clean interface
@@ -32,6 +34,10 @@ FEATURES                                   *macrobank-macrobank.nvim-features*
 - **Project Support**Automatic project-local macro discovery
 - **Rich UI**Clean interface with Nerd Font icons (optional)
 - **Fast Access**Built-in commands and customizable key mappings
+
+
+SCREENSHOTS                             *macrobank-macrobank.nvim-screenshots*
+
 
 
 INSTALLATION                           *macrobank-macrobank.nvim-installation*
@@ -326,6 +332,7 @@ BASIC MACRO WORKFLOW ~
 4. Edit if needed, then save: `<C-s>` to save changes to register (or `D` to clear)
 5. Save to bank: `<C-g>` (save globally) and name it
 6. Later, load and use: `:MacroBankSelect my_macro`
+
 
 
 PROJECT-SPECIFIC MACROS ~
