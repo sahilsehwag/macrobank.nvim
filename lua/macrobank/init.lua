@@ -19,10 +19,7 @@ local DEFAULTS = {
     height = 0.7,                -- fraction of lines   or absolute number
   },
 
-  mappings = {
-    open_live   = '<leader>mm',   -- open Live Macro Editor (registers)
-    open_bank   = '<leader>mb',   -- open Macro Bank (saved macros)
-  },
+  
 
   -- Editor buffer mappings override (optional)
   live_editor_mappings = {},      -- override live editor buffer mappings: {action_name = 'keymap' | false}
@@ -149,13 +146,7 @@ function M.setup(user)
     end
   })
 
-  -- Sample mappings (optional)
-  if M.config.mappings and M.config.mappings.open_live then
-    vim.keymap.set('n', M.config.mappings.open_live, require('macrobank.editor').open, { desc = '[Macrobank]: Edit macros' })
-  end
-  if M.config.mappings and M.config.mappings.open_bank then
-    vim.keymap.set('n', M.config.mappings.open_bank, require('macrobank.bank_editor').open, { desc = '[MacroBank] Edit saved macros' })
-  end
+  
 
   -- Define highlight groups
   vim.api.nvim_set_hl(0, 'MacroBankGroupHeader', { link = 'Function', default = true })

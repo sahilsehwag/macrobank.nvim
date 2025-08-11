@@ -70,11 +70,6 @@ require("macrobank").setup({
     height = 0.7,                -- fraction of lines   or absolute number
   },
 
-  mappings = {
-    open_live   = '<leader>mm',   -- open Live Macro Editor (registers)
-    open_bank   = '<leader>mb',   -- open Macro Bank (saved macros)
-  },
-
   -- Editor buffer mappings override (optional)
   live_editor_mappings = {},      -- override live editor buffer mappings: {action_name = 'keymap' | false}
   bank_editor_mappings = {},      -- override bank editor buffer mappings: {action_name = 'keymap' | false}
@@ -97,12 +92,6 @@ require("macrobank").setup({
   -- Different default registers
   default_select_register = 'x',
   default_play_register = 'y',
-  
-  -- Custom keymaps
-  mappings = {
-    open_live = '<leader>ml',
-    open_bank = '<leader>ms',
-  },
   
   -- Disable nerd font icons
   nerd_icons = false,
@@ -134,12 +123,25 @@ require("macrobank").setup({
 | `:MacroBankPlay [name]` | Execute a macro directly (interactive picker if no name) |
 | `:MacroBankPlay! [name]` | Same as above but shows all scopes |
 
-### Default Keymaps
 
-| Keymap | Command | Description |
-|--------|---------|-------------|
-| `<leader>mm` | `:MacroBankLive` | Open Live Macro Editor |
-| `<leader>mb` | `:MacroBank` | Open Macro Bank |
+
+### Keymaps
+
+You can set up your own keymaps to open the Live Macro Editor or Macro Bank using `vim.keymap.set` or `vim.cmd`.
+
+**Using `vim.keymap.set` (recommended):**
+
+```lua
+vim.keymap.set('n', '<leader>mm', function() require('macrobank.editor').open() end, { desc = '[Macrobank]: Edit macros' })
+vim.keymap.set('n', '<leader>mb', function() require('macrobank.bank_editor').open() end, { desc = '[MacroBank] Edit saved macros' })
+```
+
+**Using `vim.cmd`:**
+
+```lua
+vim.keymap.set('n', '<leader>mm', ':MacroBankLive<CR>', { desc = '[Macrobank]: Edit macros' })
+vim.keymap.set('n', '<leader>mb', ':MacroBank<CR>', { desc = '[MacroBank] Edit saved macros' })
+```
 
 ### Live Macro Editor Keymaps
 
