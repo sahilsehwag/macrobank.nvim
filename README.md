@@ -26,19 +26,19 @@ A powerful Neovim plugin for managing, editing, and organizing macros with persi
 
 ### Live Macro Editor
 Edit macros in real-time with quick navigation and clean interface
-![Live Macro Editor](assets/Screenshot%202025-08-11%20at%209.47.40%20AM.png)
+![Live Macro Editor](assets/live_editor.png)
 
 ### Smart Macro Picker  
 Interactive macro selection with emoji status indicators and scope information
-![Macro Picker](assets/Screenshot%202025-08-11%20at%209.50.18%20AM.png)
+![Macro Picker](assets/macro_picker.png)
 
 ### Saved Macro Bank
 Manage your saved macros organized by scope with rich context information
-![Macro Bank](assets/Screenshot%202025-08-11%20at%209.52.33%20AM.png)
+![Macro Bank](assets/bank_editor.png)
 
 ### Macro History & Versioning
 View and rollback to previous versions of your macros
-![Macro History](assets/Screenshot%202025-08-11%20at%209.52.58%20AM.png)
+![Macro History](assets/history_rollback.png)
 
 </div>
 
