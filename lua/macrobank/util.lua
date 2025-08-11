@@ -1,14 +1,28 @@
+---@brief [[
+---Utility module for MacroBank providing key processing, parsing, and helper functions.
+---@brief ]]
+
+---@tag macrobank-util
+
 local U = {}
 
+--- Convert key sequence to human-readable format
+---@param keys string|nil Key sequence to convert
+---@return string Readable key representation
 function U.readable(keys)
   return vim.fn.keytrans(keys or '')
 end
 
+--- Convert string to terminal codes
+---@param s string|nil String with key notation
+---@return string String with actual terminal codes
 function U.to_termcodes(s)
   return vim.api.nvim_replace_termcodes(s or '', true, true, true)
 end
 
--- Parse a Live Editor line: "a  keys" → { reg = 'a', text = 'keys' }
+--- Parse Live Editor line format
+---@param line string|nil Line to parse in format "a  keys"
+---@return table|nil Parsed result {reg, text} or nil if invalid
 function U.parse_reg_line(line)
   if not line then return nil end
   local reg, text = line:match('^([a-z])%s%s(.*)$')
@@ -16,7 +30,9 @@ function U.parse_reg_line(line)
   return { reg = reg, text = text or '' }
 end
 
--- Parse a Macro Bank line: "name  keys" → { name, text }
+--- Parse Bank Editor line format  
+---@param line string|nil Line to parse in format "name  keys"
+---@return table|nil Parsed result {name, text} or nil if invalid
 function U.parse_bank_line(line)
   if not line then return nil end
   local name, text = line:match('^(.-)%s%s(.*)$')
@@ -24,7 +40,8 @@ function U.parse_bank_line(line)
   return { name = vim.trim(name), text = text or '' }
 end
 
--- Tiny uuid (good enough for ids)
+--- Generate unique timestamp-based ID
+---@return string Unique identifier
 function U.uuid()
   local n = tostring(vim.loop.hrtime()):reverse()
   return n:sub(1,8)..'-'..n:sub(9,12)..'-'..n:sub(13,16)

@@ -1,3 +1,10 @@
+---@brief [[
+---UI module for MacroBank providing picker interfaces and user interactions.
+---Handles macro selection, search, conflict resolution, and input prompts.
+---@brief ]]
+
+---@tag macrobank-ui
+
 local U = require('macrobank.util')
 local S = require('macrobank.scopes')
 local Store = require('macrobank.store')
@@ -5,6 +12,8 @@ local Store = require('macrobank.store')
 local UI = {}
 local cfg = nil
 
+--- Setup UI module with configuration
+---@param config table Configuration object
 function UI.setup(config) cfg = config end
 
 -- Picker label: [scope] Name  —  «keys»
@@ -17,6 +26,10 @@ local function context_for(scope)
   return v
 end
 
+--- Generate display label for macro in pickers
+---@param m table Macro object with name, scope, keys
+---@param is_active boolean Whether macro is active in current context
+---@return string Formatted label with emoji indicator and scope info
 function UI.picker_label(m, is_active)
   local scope = m.scope and m.scope.type or 'global'
   local ctx = context_for(m.scope)
@@ -30,7 +43,10 @@ function UI.picker_label(m, is_active)
   return string.format('%s %s', prefix, m.name)
 end
 
--- Context-aware select; returns chosen macro (default: available only)
+--- Show macro selection picker with context awareness
+---@param cb function Callback function called with selected macro or nil  
+---@param ctx table|nil Optional context (uses current if nil)
+---@param show_all boolean|nil Show all scopes if true, context-only if false (default)
 function UI.select_macro(cb, ctx, show_all)
   local all = Store.all(ctx)
   local cur = ctx or S.current_context(function() return Store.get_session_id() end)

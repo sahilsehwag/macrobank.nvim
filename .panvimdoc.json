@@ -1,0 +1,14 @@
+{
+  "project_name": "macrobank",
+  "input_file": "README.md", 
+  "vim_version": "Neovim >= 0.8.0",
+  "toc": true,
+  "description": "A powerful macro management plugin for Neovim",
+  "demojify": true,
+  "treesitter": true,
+  "ignore_rawblocks": true,
+  "doc_mapping": true,
+  "doc_mapping_project_name": true,
+  "shift_width": 4,
+  "increment_heading_level_by": 0
+}

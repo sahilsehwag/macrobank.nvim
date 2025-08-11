@@ -1,3 +1,10 @@
+---@brief [[
+---Scopes module for MacroBank handling context matching and scope utilities.
+---Provides context detection, scope matching, and display formatting.
+---@brief ]]
+
+---@tag macrobank-scopes
+
 local S = {}
 
 -- Icons (nerdfont); fallback to ASCII if disabled by config
@@ -15,11 +22,17 @@ local function icon(kind, nerd)
   return ({ global='G', filetype='FT', cwd='CWD', file='F', directory='DIR', project='PROJ' })[kind] or ''
 end
 
--- Just the icon (for picker labels)
+--- Get icon for scope type
+---@param kind string Scope type (global, filetype, file, directory, cwd, project)
+---@param nerd boolean Whether to use nerd font icons
+---@return string Icon character or ASCII fallback
 function S.icon_only(kind, nerd)
   return icon(kind, nerd)
 end
 
+--- Get current context information
+---@param get_session_id function Function returning session ID
+---@return table Context with file, dir, filetype, cwd fields
 function S.current_context(get_session_id)
   local file = vim.fn.expand('%:p')
   local dir = file ~= '' and vim.fn.fnamemodify(file, ':h') or vim.fn.getcwd()

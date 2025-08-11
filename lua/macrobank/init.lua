@@ -1,6 +1,32 @@
+---@brief [[
+---MacroBank is a powerful Neovim plugin for managing, editing, and organizing
+---macros with persistent storage across sessions and projects.
+---
+---Features:
+--- • Live Macro Editor for real-time editing with quick navigation
+--- • Persistent storage with global and project-local macro files  
+--- • Smart selection with fuzzy matching and context awareness
+--- • Multiple scope types (global, filetype, file, directory, cwd, project)
+--- • Rich UI with Nerd Font icons and clean interface
+--- • Comprehensive Lua API for programmatic access
+---@brief ]]
+
+---@tag macrobank.nvim
+
 local M = {}
 
--- Default configuration; override via require('macrobank').setup{ ... }
+---@class macrobank.Config
+---@field store_path_global string Path to global macro store file
+---@field project_store_paths string|string[]|nil Project store discovery paths  
+---@field default_select_register string Register to load selected macros into
+---@field default_play_register string Temporary register for macro playback
+---@field nerd_icons boolean Use Nerd Font icons in UI elements
+---@field window {width: number, height: number} Editor window dimensions
+---@field live_editor_mappings table<string, string|boolean> Live editor mapping overrides
+---@field bank_editor_mappings table<string, string|boolean> Bank editor mapping overrides
+
+--- Default configuration
+---@type macrobank.Config
 local DEFAULTS = {
   -- Global store (always read; also the fallback write target)
   store_path_global = vim.fn.stdpath('config') .. '/macrobank_store.json',
@@ -29,6 +55,8 @@ local DEFAULTS = {
 
 M.config = vim.deepcopy(DEFAULTS)
 
+--- Setup MacroBank with user configuration
+---@param user macrobank.Config|nil User configuration to merge with defaults
 function M.setup(user)
   if user then M.config = vim.tbl_deep_extend('force', vim.deepcopy(DEFAULTS), user) end
 
@@ -153,30 +181,82 @@ function M.setup(user)
   vim.api.nvim_set_hl(0, 'MacroBankGroupHeader', { link = 'Function', default = true })
 end
 
+---@tag macrobank-api
+
 -- Convenience re-exports so users can `require('macrobank')` directly
 local Editor = require('macrobank.editor')
 local Bank   = require('macrobank.bank_editor')
 local UI     = require('macrobank.ui')
 local Store  = require('macrobank.store')
 
--- UI entry points
+--- Open the Live Macro Editor
+---@param ctx table|nil Optional context (uses current if nil)
 M.open_live = Editor.open
+
+--- Open the Macro Bank Editor  
+---@param ctx table|nil Optional context (uses current if nil)
 M.open_bank = Bank.open
+
+--- Show macro selection picker
+---@param callback function Function called with selected macro or nil
+---@param ctx table|nil Optional context (uses current if nil) 
+---@param show_all boolean|nil Show all scopes if true, context-only if false
 M.select_macro = UI.select_macro
+
+--- Show fuzzy search picker for macros
+---@param callback function Function called with selected macro or nil
+---@param ctx table|nil Optional context (uses current if nil)
 M.search_macros = UI.search_macros
 
--- Store helpers (direct references)
+--- Get all macros merged from global and project stores
+---@param ctx table|nil Optional context (uses current if nil)
+---@return table[] List of macro objects
 M.store_all = Store.all
+
+--- Add multiple macros to appropriate stores
+---@param entries table[] List of {name, keys, scope} objects
+---@param ctx table|nil Optional context
 M.store_add_many = Store.add_many
+
+--- Update existing macro, preserving history
+---@param id string Macro ID
+---@param fields table Fields to update
+---@param ctx table|nil Optional context
 M.store_update = Store.update
+
+--- Delete macro permanently from its source file
+---@param id string Macro ID
+---@param ctx table|nil Optional context
 M.store_delete = Store.delete
+
+--- Find specific macro by name and scope
+---@param name string Macro name
+---@param scope table Scope object {type, value?}
+---@param ctx table|nil Optional context
+---@return table|nil Macro object or nil if not found
 M.store_find_by_name_scope = Store.find_by_name_scope
+
+--- Get version history for macro rollback
+---@param id string Macro ID
+---@param ctx table|nil Optional context
+---@return table[] List of previous versions
 M.store_history = Store.history
+
+--- Partition macros by current context
+---@param ctx table|nil Optional context
+---@return table[], table[] active_macros, other_macros
 M.store_partition_by_context = Store.partition_by_context
+
+--- Get current session ID
+---@return string Session identifier
 M.get_session_id = Store.get_session_id
 
--- Scopes and utilities (advanced usage)
+--- Scope utilities module
+---@type table
 M.scopes = require('macrobank.scopes')
-M.util   = require('macrobank.util')
+
+--- Utility functions module  
+---@type table
+M.util = require('macrobank.util')
 
 return M

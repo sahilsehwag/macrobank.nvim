@@ -1,3 +1,20 @@
+---@brief [[
+---Store module for MacroBank handling persistent storage and macro management.
+---Manages global and project-local macro files with scope-based organization.
+---@brief ]]
+
+---@tag macrobank-store
+
+---@class macrobank.Macro
+---@field id string Unique identifier
+---@field name string Macro name  
+---@field keys string Macro key sequence
+---@field scope table Scope information {type, value?}
+---@field saved_at string ISO timestamp of creation
+---@field updated_at string|nil ISO timestamp of last update
+---@field history table[]|nil Previous versions for rollback
+---@field __source string|nil Source file path (internal)
+
 local U = require('macrobank.util')
 local S = require('macrobank.scopes')
 
@@ -149,17 +166,28 @@ local function choose_target_path(scope, ctx)
   return global_path()
 end
 
+--- Setup store module with configuration
+---@param config table Configuration object
 function Store.setup(config)
   cfg = config
 end
 
+--- Get current session identifier  
+---@return string Session ID
 function Store.get_session_id() return STATE.session_id end
 
+--- Get all macros merged from global and project stores
+---@param ctx table|nil Optional context (uses current if nil)
+---@return macrobank.Macro[] List of macro objects  
 function Store.all(ctx)
   return load_all_sources(ctx).macros
 end
 
--- Find by name+scope (exact match of type+value)
+--- Find macro by exact name and scope match
+---@param name string Macro name to search for
+---@param scope table Scope object {type, value?} to match
+---@param ctx table|nil Optional context
+---@return macrobank.Macro|nil Found macro or nil
 function Store.find_by_name_scope(name, scope, ctx)
   if not name or not scope then return nil end
   for _, m in ipairs(Store.all(ctx)) do
@@ -170,6 +198,9 @@ function Store.find_by_name_scope(name, scope, ctx)
   return nil
 end
 
+--- Add multiple macros to appropriate stores based on scope
+---@param entries table[] List of macro objects {name, keys, scope, id?, saved_at?}
+---@param ctx table|nil Optional context
 function Store.add_many(entries, ctx)
   -- entries: { {name, keys, scope} ... }
   for _, e in ipairs(entries) do
@@ -188,6 +219,10 @@ function Store.add_many(entries, ctx)
   end
 end
 
+--- Update existing macro, preserving history
+---@param id string Macro ID to update
+---@param fields table Fields to update {name?, keys?, scope?}
+---@param ctx table|nil Optional context
 function Store.update(id, fields, ctx)
   -- update within the original source file when possible
   local all = load_all_sources(ctx).macros
@@ -215,6 +250,9 @@ function Store.update(id, fields, ctx)
   save_to_path(target, data)
 end
 
+--- Delete macro permanently from its source file
+---@param id string Macro ID to delete
+---@param ctx table|nil Optional context
 function Store.delete(id, ctx)
   -- delete from its source
   local all = load_all_sources(ctx).macros
@@ -233,13 +271,18 @@ function Store.delete(id, ctx)
   save_to_path(target, data)
 end
 
--- History helpers
+--- Get version history for macro rollback
+---@param id string Macro ID
+---@param ctx table|nil Optional context
+---@return table[] List of previous versions
 function Store.history(id, ctx)
   for _, m in ipairs(Store.all(ctx)) do if m.id == id then return m.history or {} end end
   return {}
 end
 
--- Return two arrays: eligible (match current ctx) and others
+--- Partition macros by current context
+---@param ctx table|nil Optional context (uses current if nil)
+---@return macrobank.Macro[], macrobank.Macro[] active_macros, other_macros
 function Store.partition_by_context(ctx)
   local data = load_all_sources(ctx)
   ctx = ctx or S.current_context(function() return STATE.session_id end)
